@@ -24,24 +24,33 @@ export const FloatingInput = React.forwardRef<
             )}
             {...props}
         />
-
         <label
-            className="
+          className="
             pointer-events-none absolute left-3
             top-3 text-sm text-muted-foreground
             transition-all duration-200
+            
+            /* Current logic: label is in middle if placeholder is shown */
             peer-placeholder-shown:top-3
             peer-placeholder-shown:text-sm
             peer-placeholder-shown:font-normal
+
+            /* NEW LOGIC: Move to top if focused OR if the input is NOT empty */
             peer-focus:-top-2
             peer-focus:text-xs
             peer-focus:font-semibold
             peer-focus:text-primary
             peer-focus:bg-background
+
+            /* Added this: Keeps label at top even after focus is lost if text exists */
+            peer-[:not(:placeholder-shown)]:-top-2
+            peer-[:not(:placeholder-shown)]:text-xs
+            peer-[:not(:placeholder-shown)]:font-semibold
+            
             px-1
-            "
+          "
         >
-            {label}
+          {label}
         </label>
     </div>
 

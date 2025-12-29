@@ -1,909 +1,3 @@
-// // TicketOwnersPage.tsx
-// import { useState, useRef } from "react";
-// import {
-//   Card,
-//   CardContent,
-//   CardHeader,
-//   CardTitle,
-// } from "@/components/ui/card";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogHeader,
-//   DialogTitle,
-//   DialogTrigger,
-// } from "@/components/ui/dialog";
-// import {
-//   Table,
-//   TableBody,
-//   TableCell,
-//   TableHead,
-//   TableHeader,
-//   TableRow,
-// } from "@/components/ui/table";
-// import { Badge } from "@/components/ui/badge";
-// import { Separator } from "@/components/ui/separator";
-// import { Users, Plus, Upload, Download, Search, Edit, Trash } from "lucide-react";
-// import Papa from "papaparse";
-// import { useToast } from "@/hooks/use-toast";
-
-// export interface TicketOwner {
-//   id: string;
-//   name: string;
-//   department: string;
-//   designation: string;
-//   ticketNumbers: string[];
-// }
-
-// export default function TicketOwnersPage() {
-//   const { toast } = useToast();
-//   const fileInputRef = useRef<HTMLInputElement>(null);
-
-//   const [owners, setOwners] = useState<TicketOwner[]>([]);
-//   const [searchTicket, setSearchTicket] = useState("");
-//   const [viewMode, setViewMode] = useState<"card" | "table">("card");
-
-//   const [openAddModal, setOpenAddModal] = useState(false);
-//   const [editOwner, setEditOwner] = useState<TicketOwner | null>(null);
-
-//   const [newName, setNewName] = useState("");
-//   const [department, setDepartment] = useState("");
-//   const [designation, setDesignation] = useState("");
-//   const [ticketInputs, setTicketInputs] = useState([""]);
-
-//   /* ================= TICKET HANDLERS ================= */
-//   const handleAddTicketField = () => setTicketInputs([...ticketInputs, ""]);
-//   const handleTicketChange = (index: number, value: string) => {
-//     const newTickets = [...ticketInputs];
-//     newTickets[index] = value;
-//     setTicketInputs(newTickets);
-//   };
-//   const handleRemoveTicketField = (index: number) => {
-//     setTicketInputs(ticketInputs.filter((_, i) => i !== index));
-//   };
-
-//   /* ================= ADD OWNER ================= */
-//   const handleAddOwner = () => {
-//     const tickets = ticketInputs.map((t) => t.trim()).filter(Boolean);
-
-//     if (!newName.trim() || !department.trim() || !designation.trim() || tickets.length === 0) {
-//       return toast({
-//         title: "Error",
-//         description: "All fields and at least one ticket are required",
-//         variant: "destructive",
-//       });
-//     }
-
-//     const allTickets = owners.flatMap((o) => o.ticketNumbers);
-//     const duplicate = tickets.find((t) => allTickets.includes(t));
-//     if (duplicate) {
-//       return toast({
-//         title: "Duplicate Ticket",
-//         description: `Ticket "${duplicate}" is already taken by another user.`,
-//         variant: "destructive",
-//       });
-//     }
-
-//     const newOwner: TicketOwner = {
-//       id: crypto.randomUUID(),
-//       name: newName.trim(),
-//       department: department.trim(),
-//       designation: designation.trim(),
-//       ticketNumbers: tickets,
-//     };
-
-//     setOwners((prev) => [...prev, newOwner]);
-//     setNewName("");
-//     setDepartment("");
-//     setDesignation("");
-//     setTicketInputs([""]);
-//     setOpenAddModal(false);
-//     toast({ title: "Success", description: "Owner added successfully" });
-//   };
-
-//   /* ================= UPDATE OWNER ================= */
-//   const handleUpdateOwner = () => {
-//     if (!editOwner) return;
-
-//     const tickets = editOwner.ticketNumbers.map((t) => t.trim()).filter(Boolean);
-//     const otherTickets = owners.filter((o) => o.id !== editOwner.id).flatMap((o) => o.ticketNumbers);
-//     const duplicate = tickets.find((t) => otherTickets.includes(t));
-//     if (duplicate) {
-//       return toast({
-//         title: "Duplicate Ticket",
-//         description: `Ticket "${duplicate}" is already taken by another user.`,
-//         variant: "destructive",
-//       });
-//     }
-
-//     setOwners((prev) => prev.map((o) => (o.id === editOwner.id ? editOwner : o)));
-//     setEditOwner(null);
-//     toast({ title: "Updated", description: "Owner updated successfully" });
-//   };
-
-//   /* ================= DELETE OWNER ================= */
-//   const handleDelete = (id: string) => {
-//     setOwners((prev) => prev.filter((o) => o.id !== id));
-//     toast({ title: "Deleted", description: "Owner removed" });
-//   };
-
-//   /* ================= SEARCH ================= */
-//   // Only filter when searchTicket has value
-//   const filteredOwners = searchTicket
-//     ? owners.filter((o) => o.ticketNumbers.some((t) => t.includes(searchTicket)))
-//     : [];
-
-//   /* ================= CSV IMPORT ================= */
-//   const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     const file = e.target.files?.[0];
-//     if (!file) return;
-
-//     Papa.parse(file, {
-//       header: true,
-//       skipEmptyLines: true,
-//       complete: (result) => {
-//         const imported: TicketOwner[] = [];
-
-//         result.data.forEach((row: any) => {
-//           if (!row.Name || !row.Tickets) return;
-//           const tickets = row.Tickets.split(",").map((t: string) => t.trim()).filter(Boolean);
-
-//           const existingTickets = owners.flatMap((o) => o.ticketNumbers).concat(
-//             imported.flatMap((o) => o.ticketNumbers)
-//           );
-//           const duplicate = tickets.find((t) => existingTickets.includes(t));
-//           if (duplicate) {
-//             toast({
-//               title: "Duplicate Ticket",
-//               description: `Ticket "${duplicate}" in CSV is already taken`,
-//               variant: "destructive",
-//             });
-//             return;
-//           }
-
-//           imported.push({
-//             id: crypto.randomUUID(),
-//             name: row.Name,
-//             department: row.Department || "",
-//             designation: row.Designation || "",
-//             ticketNumbers: tickets,
-//           });
-//         });
-
-//         if (imported.length > 0) {
-//           setOwners((prev) => [...prev, ...imported]);
-//           toast({ title: "Imported", description: `${imported.length} owners imported` });
-//         }
-//       },
-//       error: () => toast({ title: "Error", description: "Failed to parse CSV", variant: "destructive" }),
-//     });
-
-//     if (fileInputRef.current) fileInputRef.current.value = "";
-//   };
-
-//   /* ================= CSV EXPORT ================= */
-//   const handleExport = () => {
-//     const headers = ["Name", "Department", "Designation", "Tickets"];
-//     const rows = owners.map((o) => [o.name, o.department, o.designation, o.ticketNumbers.join(",")]);
-//     const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
-
-//     const blob = new Blob([csv], { type: "text/csv" });
-//     const url = URL.createObjectURL(blob);
-//     const a = document.createElement("a");
-//     a.href = url;
-//     a.download = "ticket-owners.csv";
-//     a.click();
-//     URL.revokeObjectURL(url);
-//   };
-
-//   return (
-//     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-//       {/* HEADER + VIEW TOGGLE + ADD */}
-//       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-//         <div className="flex items-center gap-2">
-//           <Users className="h-6 w-6" />
-//           <h1 className="text-2xl font-bold">Ticket Owners</h1>
-//         </div>
-
-//         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-//           <Button size="sm" variant={viewMode === "card" ? "default" : "outline"} onClick={() => setViewMode("card")}>Owner Cards</Button>
-//           <Button size="sm" variant={viewMode === "table" ? "default" : "outline"} onClick={() => setViewMode("table")}>Table View</Button>
-
-//           {/* Add Owner Modal */}
-//           <Dialog open={openAddModal} onOpenChange={setOpenAddModal}>
-//             <DialogTrigger asChild>
-//               <Button className="ml-0 sm:ml-4 flex items-center gap-1"><Plus className="h-4 w-4" /> Add Owner</Button>
-//             </DialogTrigger>
-//             <DialogContent className="max-w-md space-y-4">
-//               <DialogHeader><DialogTitle>Add Owner</DialogTitle></DialogHeader>
-
-//               <Input placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-//               <Input placeholder="Department" value={department} onChange={(e) => setDepartment(e.target.value)} />
-//               <Input placeholder="Designation" value={designation} onChange={(e) => setDesignation(e.target.value)} />
-
-//               <div className="space-y-2">
-//                 <label className="text-sm font-medium">Tickets</label>
-//                 {ticketInputs.map((ticket, index) => (
-//                   <div key={index} className="flex gap-2 items-center">
-//                     <Input
-//                       placeholder={`Ticket #${index + 1}`}
-//                       value={ticket}
-//                       onChange={(e) => handleTicketChange(index, e.target.value)}
-//                       className="flex-1"
-//                     />
-//                     {index === ticketInputs.length - 1 && (
-//                       <Button size="icon" onClick={handleAddTicketField}><Plus className="h-4 w-4" /></Button>
-//                     )}
-//                     {ticketInputs.length > 1 && (
-//                       <Button size="icon" variant="destructive" onClick={() => handleRemoveTicketField(index)}>×</Button>
-//                     )}
-//                   </div>
-//                 ))}
-//               </div>
-
-//               <Button className="w-full" onClick={handleAddOwner}>Save Owner</Button>
-
-//               <Separator />
-
-//               <div className="space-y-2">
-//                 <h4 className="text-sm font-medium">Bulk Import / Export</h4>
-//                 <div className="flex flex-col sm:flex-row gap-2">
-//                   <Button variant="outline" className="flex-1" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4 mr-1" /> Import</Button>
-//                   <Button variant="outline" className="flex-1" onClick={handleExport}><Download className="h-4 w-4 mr-1" /> Export</Button>
-//                 </div>
-//                 <input ref={fileInputRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
-//               </div>
-//             </DialogContent>
-//           </Dialog>
-//         </div>
-//       </div>
-
-//       {/* SEARCH */}
-//       <Card>
-//         <CardContent className="mt-4">
-//           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border rounded-md overflow-hidden">
-//             <Input
-//               className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-3 py-2"
-//               placeholder="Enter ticket number"
-//               value={searchTicket}
-//               onChange={(e) => setSearchTicket(e.target.value)}
-//             />
-//             <Button className="bg-[hsl(220,70%,50%)] text-white hover:bg-[hsl(220,70%,40%)] flex items-center justify-center px-4 py-2">
-//               <Search className="h-6 w-6" />
-//             </Button>
-//           </div>
-//         </CardContent>
-//       </Card>
-
-//       {/* RESULTS */}
-//       {searchTicket ? (
-//         filteredOwners.length > 0 ? (
-//           viewMode === "card" ? (
-//             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-//               {filteredOwners.map((owner) => (
-//                 <Card key={owner.id} className="p-4 flex flex-col justify-between">
-//                   <CardHeader>
-//                     <CardTitle className="text-lg">{owner.name}</CardTitle>
-//                     <div className="text-sm text-muted-foreground">{owner.department} - {owner.designation}</div>
-//                   </CardHeader>
-//                   <CardContent className="flex flex-wrap gap-1">
-//                     {owner.ticketNumbers.map((ticket) => (
-//                       <Badge key={ticket} variant="secondary">{ticket}</Badge>
-//                     ))}
-//                   </CardContent>
-//                   <div className="mt-2 flex gap-2 justify-end">
-//                     <Button size="icon" variant="ghost" onClick={() => setEditOwner(owner)}>
-//                       <Edit className="h-4 w-4" />
-//                     </Button>
-//                     <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(owner.id)}>
-//                       <Trash className="h-4 w-4" />
-//                     </Button>
-//                   </div>
-//                 </Card>
-//               ))}
-//             </div>
-//           ) : (
-//             <Card>
-//               <CardContent>
-//                 <Table className="overflow-x-auto">
-//                   <TableHeader>
-//                     <TableRow>
-//                       <TableHead>Name</TableHead>
-//                       <TableHead>Department</TableHead>
-//                       <TableHead>Designation</TableHead>
-//                       <TableHead>Tickets</TableHead>
-//                       <TableHead className="text-center w-[120px]">Action</TableHead>
-//                     </TableRow>
-//                   </TableHeader>
-//                   <TableBody>
-//                     {filteredOwners.map((o) => (
-//                       <TableRow key={o.id}>
-//                         <TableCell>{o.name}</TableCell>
-//                         <TableCell>{o.department}</TableCell>
-//                         <TableCell>{o.designation}</TableCell>
-//                         <TableCell className="overflow-x-auto">
-//                           <div className="flex flex-wrap gap-1">
-//                             {o.ticketNumbers.map((t) => (
-//                               <Badge key={t} variant="secondary">{t}</Badge>
-//                             ))}
-//                           </div>
-//                         </TableCell>
-//                         <TableCell className="text-center">
-//                           <div className="flex justify-center gap-2">
-//                             <Button size="icon" variant="ghost" onClick={() => setEditOwner(o)}>
-//                               <Edit className="h-4 w-4" />
-//                             </Button>
-//                             <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(o.id)}>
-//                               <Trash className="h-4 w-4" />
-//                             </Button>
-//                           </div>
-//                         </TableCell>
-//                       </TableRow>
-//                     ))}
-//                   </TableBody>
-//                 </Table>
-//               </CardContent>
-//             </Card>
-//           )
-//         ) : (
-//           <div className="text-center text-muted-foreground mt-6">No tickets found</div>
-//         )
-//       ) : null}
-
-//       {/* EDIT MODAL */}
-//       <Dialog open={!!editOwner} onOpenChange={() => setEditOwner(null)}>
-//         <DialogContent className="max-w-md space-y-3">
-//           <DialogHeader><DialogTitle>Edit Owner</DialogTitle></DialogHeader>
-//           {editOwner && (
-//             <>
-//               <Input value={editOwner.name} onChange={(e) => setEditOwner({ ...editOwner, name: e.target.value })} />
-//               <Input value={editOwner.department} onChange={(e) => setEditOwner({ ...editOwner, department: e.target.value })} />
-//               <Input value={editOwner.designation} onChange={(e) => setEditOwner({ ...editOwner, designation: e.target.value })} />
-//               <Input
-//                 value={editOwner.ticketNumbers.join(",")}
-//                 onChange={(e) =>
-//                   setEditOwner({ ...editOwner, ticketNumbers: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) })
-//                 }
-//               />
-//               <Button className="w-full" onClick={handleUpdateOwner}>Update Owner</Button>
-//             </>
-//           )}
-//         </DialogContent>
-//       </Dialog>
-//     </div>
-//   );
-// }
-
-
-// TicketOwnersPage.tsx
-// import { useState, useRef } from "react";
-// import {
-//   Card,
-//   CardContent,
-//   CardHeader,
-//   CardTitle,
-// } from "@/components/ui/card";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import {
-//   Table,
-//   TableBody,
-//   TableCell,
-//   TableHead,
-//   TableHeader,
-//   TableRow,
-// } from "@/components/ui/table";
-// import { Badge } from "@/components/ui/badge";
-// import { FloatingInput } from "@/components/ui/FloatingInput";
-// import { FloatingSelect } from "@/components/ui/FloatingSelect";
-// import IDCard from "@/components/raffle/IDCard";
-// import {
-//   Users,
-//   Plus,
-//   TableIcon,
-//   Upload,
-//   Download,
-//   Search,
-// } from "lucide-react";
-// import Papa from "papaparse";
-// import { useToast } from "@/hooks/use-toast";
-// import { SelectItem } from "@/components/ui/select";
-
-// export interface TicketOwner {
-//   id: string;
-//   branch: string;
-//   division: string;
-//   reg_code: string;
-//   name: string;
-//   department: string;
-//   designation: string;
-//   company: string;
-//   gender: string;
-//   ticketNumbers: string[];
-// }
-
-// type PageView = "search" | "add" | "table";
-
-// export default function TicketOwnersPage() {
-//   const { toast } = useToast();
-//   const fileInputRef = useRef<HTMLInputElement>(null);
-
-//   const [owners, setOwners] = useState<TicketOwner[]>([]);
-//   const [page, setPage] = useState<PageView>("search");
-//   // Create state for registrations
-//   const [registrations, setRegistrations] = useState([]);
-
-
-//   /* ================= SEARCH ================= */
-//   const [searchTicket, setSearchTicket] = useState("");
-//   const [searchedTicket, setSearchedTicket] = useState("");
-
-//   const searchedOwner = searchedTicket
-//     ? owners.find((o) => o.ticketNumbers.includes(searchedTicket.trim()))
-//     : null;
-
-//   /* ================= ADD OWNER FORM ================= */
-//   const [branch, setBranch] = useState("");
-//   const [division, setDivision] = useState("");
-//   const [regCode, setRegCode] = useState("");
-//   const [name, setName] = useState("");
-//   const [department, setDepartment] = useState("");
-//   const [designation, setDesignation] = useState("");
-//   const [company, setCompany] = useState("");
-//   const [gender, setGender] = useState("");
-//   const [ticketInputs, setTicketInputs] = useState([""]);
-
-
-
-//   const handleAddOwner = () => {
-//     const newEntry = {
-//     name,
-//     company,
-//     branch,
-//     division,
-//     department,
-//     designation,
-//     regCode,
-//     gender,
-//     tickets: [...ticketInputs],
-//   };
-
-//   setRegistrations((prev) => [...prev, newEntry]);
-
-//   // Optionally reset form
-//   setName("");
-//   setCompany("");
-//   setBranch("");
-//   setDivision("");
-//   setDepartment("");
-//   setDesignation("");
-//   setRegCode("");
-//   setGender("");
-//   setTicketInputs([]);
-
-//     const tickets = ticketInputs.map(t => t.trim()).filter(Boolean);
-
-//     if (!name || tickets.length === 0) {
-//       return toast({
-//         title: "Error",
-//         description: "Name and ticket number required",
-//         variant: "destructive",
-//       });
-//     }
-//     // const [page, setPage] = useState("table");
-//     const allTickets = owners.flatMap(o => o.ticketNumbers);
-//     const duplicate = tickets.find(t => allTickets.includes(t));
-
-//     if (duplicate) {
-//       return toast({
-//         title: "Duplicate Ticket",
-//         description: `Ticket ${duplicate} already exists`,
-//         variant: "destructive",
-//       });
-//     }
-
-//     setOwners(prev => [
-//       ...prev,
-//       {
-//         id: crypto.randomUUID(),
-//         branch,
-//         division,
-//         reg_code: regCode,
-//         name,
-//         department,
-//         designation,
-//         company,
-//         gender,
-//         ticketNumbers: tickets,
-//       },
-//     ]);
-
-//     toast({ title: "Success", description: "Owner added" });
-//     setPage("table");
-//   };
-
-//   /* ================= CSV EXPORT ================= */
-//   const handleExport = () => {
-//     const headers = [
-//       "Name",
-//       "Branch",
-//       "Division",
-//       "Reg Code",
-//       "Department",
-//       "Designation",
-//       "Company",
-//       "Gender",
-//       "Tickets",
-//     ];
-
-//     const rows = owners.map(o => [
-//       o.name,
-//       o.branch,
-//       o.division,
-//       o.reg_code,
-//       o.department,
-//       o.designation,
-//       o.company,
-//       o.gender,
-//       o.ticketNumbers.join(","),
-//     ]);
-
-//     const csv = [headers, ...rows]
-//       .map(r => r.map(v => `"${v}"`).join(","))
-//       .join("\n");
-
-//     const blob = new Blob([csv], { type: "text/csv" });
-//     const url = URL.createObjectURL(blob);
-//     const a = document.createElement("a");
-//     a.href = url;
-//     a.download = "ticket-owners.csv";
-//     a.click();
-//     URL.revokeObjectURL(url);
-//   };
-
-//   return (
-//     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
-//       {/* HEADER */}
-//       <div className="flex flex-wrap gap-2 items-center justify-between">
-//         <div className="flex items-center gap-2">
-//           <Users className="h-6 w-6" />
-//           <h1 className="text-2xl font-bold">Ticket Owners</h1>
-//         </div>
-
-//         <div className="flex gap-2">
-//           <Button onClick={() => setPage("add")}>
-//             <Plus className="h-4 w-4 mr-1" /> Add Owner
-//           </Button>
-
-//           <Button variant="outline" onClick={() => setPage("table")}>
-//             <TableIcon className="h-4 w-4" />
-//           </Button>
-
-//           <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-//             <Upload className="h-4 w-4 mr-1" /> Bulk Import
-//           </Button>
-
-//           <Button variant="outline" onClick={handleExport}>
-//             <Download className="h-4 w-4 mr-1" /> Bulk Export
-//           </Button>
-
-//           <input
-//             ref={fileInputRef}
-//             type="file"
-//             accept=".csv"
-//             className="hidden"
-//           />
-//         </div>
-//       </div>
-
-//       {/* ================= ADD OWNER PAGE ================= */}
-//       {page === "add" && (
-//         <Card className="max-w-4xl mx-auto shadow-lg border-t-4 border-t-primary">
-//           <CardHeader className="border-b bg-muted/30">
-//             <CardTitle className="text-xl flex items-center gap-2">
-//               <Plus className="h-5 w-5 text-primary" />
-//               Registration Details
-//             </CardTitle>
-//           </CardHeader>
-
-//           <CardContent className="pt-6 space-y-6">
-//             {/* Main Form Grid */}
-//             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-//               <FloatingInput
-//                 label="Full Name"
-//                 onChange={(e) => setName(e.target.value)}
-//               />
-
-//               <FloatingInput
-//                 label="Company"
-//                 onChange={(e) => setCompany(e.target.value)}
-//               />
-
-//               <FloatingInput
-//                 label="Branch"
-//                 onChange={(e) => setBranch(e.target.value)}
-//               />
-
-//               <FloatingInput
-//                 label="Division"
-//                 onChange={(e) => setDivision(e.target.value)}
-//               />
-
-//               <FloatingInput
-//                 label="Department"
-//                 onChange={(e) => setDepartment(e.target.value)}
-//               />
-
-//               <FloatingInput
-//                 label="Designation"
-//                 onChange={(e) => setDesignation(e.target.value)}
-//               />
-
-//               <FloatingInput
-//                 label="Reg Code"
-//                 onChange={(e) => setRegCode(e.target.value)}
-//               />
-
-//               {/* <FloatingInput
-//                 label="Gender"
-//                 onChange={(e) => setGender(e.target.value)}
-//               /> */}
-//               <FloatingSelect
-//                 label="Gender"
-//                 value={gender}
-//                 onValueChange={setGender}
-//                 className="w-full"
-//               >
-//                 <SelectItem value="Male">Male</SelectItem>
-//                 <SelectItem value="Female">Female</SelectItem>
-//               </FloatingSelect>
-//             </div>
-
-//             {/* Ticket Section */}
-//             <div className="border-t pt-4">
-//               <div className="flex items-center justify-between mb-4">
-//                 <h3 className="text-sm font-bold flex items-center gap-2">
-//                   <Badge
-//                     variant="outline"
-//                     className="rounded-full h-6 w-6 p-0 flex items-center justify-center bg-primary/10"
-//                   >
-//                     {ticketInputs.length}
-//                   </Badge>
-//                   Assigned Ticket Numbers
-//                 </h3>
-
-//                 <Button
-//                   type="button"
-//                   variant="outline"
-//                   size="sm"
-//                   onClick={() => setTicketInputs([...ticketInputs, ""])}
-//                   className="text-xs border-dashed"
-//                 >
-//                   <Plus className="h-3 w-3 mr-1" />
-//                   Add Another Ticket
-//                 </Button>
-//               </div>
-
-//               {/* Dynamic Ticket Inputs Grid */}
-//               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-//                 {ticketInputs.map((t, i) => (
-//                   <FloatingInput
-//                     key={i}
-//                     label={`Ticket #${i + 1}`}
-//                     className="font-mono text-center"
-//                     value={t}
-//                     onChange={(e) => {
-//                       const copy = [...ticketInputs];
-//                       copy[i] = e.target.value;
-//                       setTicketInputs(copy);
-//                     }}
-//                   />
-//                 ))}
-//               </div>
-//             </div>
-
-//             {/* Actions */}
-//             <div className="pt-4 flex gap-3">
-//               <Button
-//                 variant="ghost"
-//                 className="flex-1"
-//                 onClick={() => setPage("search")}
-//               >
-//                 Cancel
-//               </Button>
-
-//               <Button
-//                 className="flex-[2] font-bold text-lg h-12 shadow-lg hover:shadow-primary/20 transition-all"
-//                 onClick={handleAddOwner}
-//               >
-//                 Save Registry & View Table
-//               </Button>
-//             </div>
-//           </CardContent>
-//         </Card>
-
-//       )}
-
-//       {/* ================= TABLE PAGE ================= */}
-//       {page === "table" && (
-//         // <Card>
-//         //   <CardContent>
-//         //     <Table>
-//         //       <TableHeader>
-//         //         <TableRow>
-//         //           <TableHead className="w-12 text-center">SL</TableHead>
-//         //           <TableHead>Name</TableHead>
-//         //           <TableHead>Company</TableHead>
-//         //           <TableHead>Branch</TableHead>
-//         //           <TableHead>Division</TableHead>
-//         //           <TableHead>Reg Code</TableHead>
-//         //           <TableHead>Department</TableHead>
-//         //           <TableHead>Designation</TableHead>
-//         //           <TableHead>Gender</TableHead>
-//         //           <TableHead>Tickets</TableHead>
-//         //           <TableHead className="text-center w-24">Actions</TableHead>
-//         //         </TableRow>
-//         //       </TableHeader>
-
-//         //       <TableBody>
-//         //         {owners.map((o, index) => (
-//         //           <TableRow key={o.id}>
-//         //             <TableCell className="text-center font-medium">
-//         //               {index + 1}
-//         //             </TableCell>
-
-//         //             <TableCell>{o.name}</TableCell>
-//         //             <TableCell>{o.company}</TableCell>
-//         //             <TableCell>{o.branch}</TableCell>
-//         //             <TableCell>{o.division}</TableCell>
-//         //             <TableCell>{o.reg_code}</TableCell>
-//         //             <TableCell>{o.department}</TableCell>
-//         //             <TableCell>{o.designation}</TableCell>
-//         //             <TableCell>{o.gender}</TableCell>
-
-//         //             <TableCell>
-//         //               <div className="flex flex-wrap gap-1">
-//         //                 {o.ticketNumbers.map((t) => (
-//         //                   <Badge key={t} variant="secondary">
-//         //                     {t}
-//         //                   </Badge>
-//         //                 ))}
-//         //               </div>
-//         //             </TableCell>
-
-//         //             {/* ACTIONS */}
-//         //             <TableCell className="text-center">
-//         //               <div className="flex justify-center gap-2">
-//         //                 <Button
-//         //                   size="icon"
-//         //                   variant="ghost"
-//         //                   onClick={() => onEditOwner(o)}
-//         //                 >
-//         //                   <Edit className="h-4 w-4" />
-//         //                 </Button>
-
-//         //                 <Button
-//         //                   size="icon"
-//         //                   variant="ghost"
-//         //                   className="text-destructive"
-//         //                   onClick={() => handleDeleteOwner(o.id)}
-//         //                 >
-//         //                   <Trash className="h-4 w-4" />
-//         //                 </Button>
-//         //               </div>
-//         //             </TableCell>
-//         //           </TableRow>
-//         //         ))}
-//         //       </TableBody>
-//         //     </Table>
-//         //   </CardContent>
-//         // </Card>
-//         <div className="overflow-x-auto">
-//           <table className="table-auto w-full mt-6 border">
-//             <thead>
-//               <tr className="bg-gray-100">
-//                 <th className="border px-2 py-1">Name</th>
-//                 <th className="border px-2 py-1">Company</th>
-//                 <th className="border px-2 py-1">Branch</th>
-//                 <th className="border px-2 py-1">Division</th>
-//                 <th className="border px-2 py-1">Department</th>
-//                 <th className="border px-2 py-1">Designation</th>
-//                 <th className="border px-2 py-1">Reg Code</th>
-//                 <th className="border px-2 py-1">Gender</th>
-//                 <th className="border px-2 py-1">Tickets</th>
-//               </tr>
-//             </thead>
-//             <tbody>
-//               {registrations.map((r, idx) => (
-//                 <tr key={idx}>
-//                   <td className="border px-2 py-1">{r.name}</td>
-//                   <td className="border px-2 py-1">{r.company}</td>
-//                   <td className="border px-2 py-1">{r.branch}</td>
-//                   <td className="border px-2 py-1">{r.division}</td>
-//                   <td className="border px-2 py-1">{r.department}</td>
-//                   <td className="border px-2 py-1">{r.designation}</td>
-//                   <td className="border px-2 py-1">{r.regCode}</td>
-//                   <td className="border px-2 py-1">{r.gender}</td>
-//                   <td className="border px-2 py-1">{r.tickets.join(", ")}</td>
-//                 </tr>
-//               ))}
-//             </tbody>
-//           </table>
-
-//           <div className="mt-4 flex justify-end">
-//             <button
-//               onClick={() => setPage("search")}
-//               className="px-4 py-2 bg-primary text-white font-semibold rounded shadow hover:bg-primary/90 transition"
-//             >
-//               Go to Search Page
-//             </button>
-//           </div>
-//         </div>
-
-
-
-//       )}
-
-//       {/* ================= SEARCH PAGE ================= */}
-//       {page === "search" && (
-//         <>
-//           <Card>
-//             <CardContent className="pt-6">
-//               <div className="flex border rounded-md overflow-hidden">
-//                 <Input
-//                   placeholder="Enter ticket number"
-//                   value={searchTicket}
-//                   onChange={e => setSearchTicket(e.target.value)}
-//                   className="border-0"
-//                 />
-//                 <Button onClick={() => setSearchedTicket(searchTicket)}>
-//                   <Search className="h-5 w-5" />
-//                 </Button>
-//               </div>
-//             </CardContent>
-//           </Card>
-
-//           {searchedTicket && (
-//             searchedOwner ? (
-//               // <Card>
-//               //   <CardContent className="space-y-2 text-sm">
-//               //     <div><b>Name:</b> {searchedOwner.name}</div>
-//               //     <div><b>Branch:</b> {searchedOwner.branch}</div>
-//               //     <div><b>Division:</b> {searchedOwner.division}</div>
-//               //     <div><b>Reg Code:</b> {searchedOwner.reg_code}</div>
-//               //     <div><b>Department:</b> {searchedOwner.department}</div>
-//               //     <div><b>Designation:</b> {searchedOwner.designation}</div>
-//               //     <div><b>Company:</b> {searchedOwner.company}</div>
-//               //     <div><b>Gender:</b> {searchedOwner.gender}</div>
-//               //     <Badge>{searchedTicket}</Badge>
-//               //   </CardContent>
-//               // </Card>
-//               <div className="flex justify-center items-center bg-gray-50">
-//                 <IDCard
-//                   name={searchedOwner.name}
-//                   designation={searchedOwner.designation}
-//                   regNo={searchedOwner.reg_code}
-//                   department={searchedOwner.department}
-//                   company={searchedOwner.company}
-//                   branch={searchedOwner.branch}
-//                   gender={searchedOwner.gender}
-//                   ticket={searchedTicket} // if your IDCard supports it
-//                 />
-//               </div>
-//             ) : (
-//               <div className="text-center text-muted-foreground">
-//                 No ticket found
-//               </div>
-//             )
-//           )}
-//         </>
-//       )}
-//     </div>
-//   );
-// }
-
 // TicketOwnersPage.tsx
 import { useState, useRef } from "react";
 import {
@@ -914,14 +8,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { FloatingInput } from "@/components/ui/FloatingInput";
 import { FloatingSelect } from "@/components/ui/FloatingSelect";
@@ -932,11 +18,10 @@ import {
   TableIcon,
   Upload,
   Download,
-  Search,
 } from "lucide-react";
-import Papa from "papaparse";
 import { useToast } from "@/hooks/use-toast";
 import { SelectItem } from "@/components/ui/select";
+import { StepBack, Pencil } from 'lucide-react';
 
 export interface TicketOwner {
   id: string;
@@ -1022,7 +107,7 @@ export default function TicketOwnersPage() {
   ]);
 
   const [page, setPage] = useState<PageView>("search");
-  const [registrations, setRegistrations] = useState([]);
+  const [, setRegistrations] = useState([]);
 
   /* ================= SEARCH ================= */
   const [searchTicket, setSearchTicket] = useState("");
@@ -1042,33 +127,11 @@ export default function TicketOwnersPage() {
   const [company, setCompany] = useState("");
   const [gender, setGender] = useState("");
   const [ticketInputs, setTicketInputs] = useState([""]);
+  // For Table Data Editing
+  const [editingOwnerId, setEditingOwnerId] = useState<string | null>(null);
+  const [editingData, setEditingData] = useState<Partial<TicketOwner>>({});
 
   const handleAddOwner = () => {
-    const newEntry = {
-      name,
-      company,
-      branch,
-      division,
-      department,
-      designation,
-      regCode,
-      gender,
-      tickets: [...ticketInputs],
-    };
-
-    setRegistrations((prev) => [...prev, newEntry]);
-
-    // Optionally reset form
-    setName("");
-    setCompany("");
-    setBranch("");
-    setDivision("");
-    setDepartment("");
-    setDesignation("");
-    setRegCode("");
-    setGender("");
-    setTicketInputs([]);
-
     const tickets = ticketInputs.map((t) => t.trim()).filter(Boolean);
 
     if (!name || tickets.length === 0) {
@@ -1090,326 +153,560 @@ export default function TicketOwnersPage() {
       });
     }
 
-    setOwners((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        branch,
-        division,
-        reg_code: regCode,
-        name,
-        department,
-        designation,
-        company,
-        gender,
-        ticketNumbers: tickets,
-      },
-    ]);
+    const newOwner: TicketOwner = {
+      id: crypto.randomUUID(),
+      branch,
+      division,
+      reg_code: regCode,
+      name,
+      department,
+      designation,
+      company,
+      gender,
+      ticketNumbers: tickets,
+    };
 
+    setOwners((prev) => [...prev, newOwner]);
     toast({ title: "Success", description: "Owner added" });
+    
+    // Reset
+    setName(""); setCompany(""); setBranch(""); setDivision("");
+    setDepartment(""); setDesignation(""); setRegCode(""); setGender("");
+    setTicketInputs([""]);
     setPage("table");
   };
 
   /* ================= CSV EXPORT ================= */
   const handleExport = () => {
-    const headers = [
-      "Name",
-      "Branch",
-      "Division",
-      "Reg Code",
-      "Department",
-      "Designation",
-      "Company",
-      "Gender",
-      "Tickets",
-    ];
-
-    const rows = owners.map((o) => [
-      o.name,
-      o.branch,
-      o.division,
-      o.reg_code,
-      o.department,
-      o.designation,
-      o.company,
-      o.gender,
-      o.ticketNumbers.join(","),
-    ]);
-
-    const csv = [headers, ...rows]
-      .map((r) => r.map((v) => `"${v}"`).join(","))
-      .join("\n");
-
+    const headers = ["Name", "Branch", "Division", "Reg Code", "Department", "Designation", "Company", "Gender", "Tickets"];
+    const rows = owners.map((o) => [o.name, o.branch, o.division, o.reg_code, o.department, o.designation, o.company, o.gender, o.ticketNumbers.join(",")]);
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = "ticket-owners.csv";
-    a.click();
+    a.href = url; a.download = "ticket-owners.csv"; a.click();
     URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-full space-y-6">
+    <div className="p-2 sm:p-4 md:p-6 max-w-full space-y-4 sm:space-y-6">
       {/* HEADER */}
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="h-6 w-6" />
-          <h1 className="text-2xl font-bold">Tickets</h1>
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between px-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <Users className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-bold truncate">Tickets</h1>
         </div>
 
-        <div className="flex gap-2">
-          {/* <Button onClick={() => setPage("add")}>
+        <div className="grid grid-cols-2 sm:flex sm:flex-row flex-wrap gap-2 w-full lg:w-auto">
+          <div className="flex gap-2 col-span-2 sm:col-auto">
+            <Button variant="outline" onClick={() => setPage("table")} className="flex-1 sm:w-12">
+              <TableIcon className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1">
+              <Upload className="h-4 w-4 mr-1" /> Bulk
+            </Button>
+          </div>
+          
+          {page === "table" && (
+            <>
+              <Button variant="outline" onClick={handleExport} className="col-span-1">
+                <Download className="h-4 w-4 mr-1" /> Export
+              </Button>
+              <Button onClick={() => setPage("search")} className="col-span-1 bg-black text-white">
+                <StepBack className="w-4 h-4" /> Back
+              </Button>
+            </>
+          )}
+
+          <Button onClick={() => setPage("add")} className="col-span-2 sm:col-auto">
             <Plus className="h-4 w-4 mr-1" /> Add Ticket
-          </Button> */}
-
-          <Button variant="outline" onClick={() => setPage("table")}>
-            <TableIcon className="h-4 w-4" />
           </Button>
-
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="h-4 w-4 mr-1" /> Bulk Import
-          </Button>
-
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-1" /> Export
-          </Button>
-
-          <Button onClick={() => setPage("add")}>
-            <Plus className="h-4 w-4 mr-1" /> Add Ticket
-          </Button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-          />
+          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" />
         </div>
       </div>
 
       {/* ================= ADD OWNER PAGE ================= */}
       {page === "add" && (
-        <Card className="max-w-4xl mx-auto shadow-lg border-t-4 border-t-primary">
-          <CardHeader className="border-b bg-muted/30">
-            <CardTitle className="text-xl flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" />
-              Registration Details
-            </CardTitle>
-          </CardHeader>
+        <>
+          <Card className="max-w-4xl mx-auto shadow-lg border-t-4 border-t-primary">
+            <CardHeader className="border-b bg-muted/30 p-4">
+              <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
+                <Plus className="h-5 w-5 text-primary" /> Registration Details
+              </CardTitle>
+            </CardHeader>
 
-          <CardContent className="pt-6 space-y-6">
-            {/* Main Form Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FloatingInput
-                label="Full Name"
-                onChange={(e) => setName(e.target.value)}
-              />
-              <FloatingInput
-                label="Company"
-                onChange={(e) => setCompany(e.target.value)}
-              />
-              <FloatingInput
-                label="Branch"
-                onChange={(e) => setBranch(e.target.value)}
-              />
-              <FloatingInput
-                label="Division"
-                onChange={(e) => setDivision(e.target.value)}
-              />
-              <FloatingInput
-                label="Department"
-                onChange={(e) => setDepartment(e.target.value)}
-              />
-              <FloatingInput
-                label="Designation"
-                onChange={(e) => setDesignation(e.target.value)}
-              />
-              <FloatingInput
-                label="Employ Id"
-                onChange={(e) => setRegCode(e.target.value)}
-              />
-              <FloatingSelect
-                label="Gender"
-                value={gender}
-                onValueChange={setGender}
-                className="w-full"
-              >
-                <SelectItem value="Male">Male</SelectItem>
-                <SelectItem value="Female">Female</SelectItem>
-              </FloatingSelect>
-            </div>
+            <CardContent className="pt-6 space-y-6 p-4 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FloatingInput label="Full Name" onChange={(e) => setName(e.target.value)} />
+                <FloatingInput label="Company" onChange={(e) => setCompany(e.target.value)} />
+                <FloatingInput label="Branch" onChange={(e) => setBranch(e.target.value)} />
+                <FloatingInput label="Division" onChange={(e) => setDivision(e.target.value)} />
+                <FloatingInput label="Department" onChange={(e) => setDepartment(e.target.value)} />
+                <FloatingInput label="Designation" onChange={(e) => setDesignation(e.target.value)} />
+                <FloatingInput label="Employ Id" onChange={(e) => setRegCode(e.target.value)} />
+                <FloatingSelect label="Gender" value={gender} onValueChange={setGender} className="w-full">
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                </FloatingSelect>
+              </div>
 
-            {/* Ticket Section */}
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold flex items-center gap-2">
-                  <Badge
+              {/* Ticket Numbers Section */}
+              <div className="border-t pt-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <Badge variant="outline" className="rounded-full h-6 w-6 p-0 flex items-center justify-center bg-primary/10">
+                      {ticketInputs.length}
+                    </Badge>
+                    Ticket Numbers
+                  </h3>
+                  <Button
+                    type="button"
                     variant="outline"
-                    className="rounded-full h-6 w-6 p-0 flex items-center justify-center bg-primary/10"
+                    size="sm"
+                    onClick={() => setTicketInputs([...ticketInputs, ""])}
+                    className="text-xs border-dashed w-full sm:w-auto"
                   >
-                    {ticketInputs.length}
-                  </Badge>
-                  Assigned Ticket Numbers
-                </h3>
+                    <Plus className="h-3 w-3 mr-1" /> Add Another
+                  </Button>
+                </div>
+
+                {/* Dynamic Ticket Inputs */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {ticketInputs.map((t, i) => (
+                    <div key={i} className="relative">
+                      <FloatingInput
+                        label={`#${i + 1}`}
+                        value={t}
+                        onChange={(e) => {
+                          const copy = [...ticketInputs];
+                          copy[i] = e.target.value;
+                          setTicketInputs(copy);
+                        }}
+                      />
+                      {/* Cancel/Delete Ticket Button */}
+                      {ticketInputs.length > 1 && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="absolute top-1 right-1 h-5 w-5 p-0"
+                          onClick={() => {
+                            const copy = ticketInputs.filter((_, idx) => idx !== i);
+                            setTicketInputs(copy);
+                          }}
+                        >
+                          ✕
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                <Button variant="ghost" className="order-2 sm:order-1 flex-1 shadow-sm" onClick={() => setPage("search")}>
+                  Cancel
+                </Button>
 
                 <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTicketInputs([...ticketInputs, ""])}
-                  className="text-xs border-dashed"
+                  className="order-1 sm:order-2 flex-[2] font-bold h-12"
+                  onClick={() => {
+                    // Trim tickets and filter empty
+                    const tickets = ticketInputs.map(t => t.trim()).filter(Boolean);
+
+                    // Validate Name and Tickets
+                    if (!name || tickets.length === 0) {
+                      return toast({
+                        title: "Error",
+                        description: "Name and at least one ticket are required",
+                        variant: "destructive",
+                      });
+                    }
+
+                    // Check for duplicate tickets (both within form and existing owners)
+                    const allTickets = owners.flatMap(o => o.ticketNumbers);
+                    const duplicate = tickets.find(t => allTickets.includes(t));
+                    const duplicateInForm = tickets.find((t, idx) => tickets.indexOf(t) !== idx);
+
+                    if (duplicate || duplicateInForm) {
+                      return toast({
+                        title: "Duplicate Ticket",
+                        description: `Ticket ${duplicate || duplicateInForm} already exists`,
+                        variant: "destructive",
+                      });
+                    }
+
+                    // Add to registrations and owners
+                    const newEntry = {
+                      id: crypto.randomUUID(),
+                      name,
+                      company,
+                      branch,
+                      division,
+                      department,
+                      designation,
+                      reg_code: regCode,
+                      gender,
+                      ticketNumbers: tickets,
+                    };
+
+                    setRegistrations(prev => [...prev, newEntry]);
+                    setOwners(prev => [...prev, newEntry]);
+
+                    // Reset form
+                    setName("");
+                    setCompany("");
+                    setBranch("");
+                    setDivision("");
+                    setDepartment("");
+                    setDesignation("");
+                    setRegCode("");
+                    setGender("");
+                    setTicketInputs([""]);
+
+                    toast({
+                      title: "Success",
+                      description: "Owner added successfully",
+                    });
+
+                    setPage("table");
+                  }}
                 >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add Another Ticket
+                  Save
                 </Button>
               </div>
-
-              {/* Dynamic Ticket Inputs Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {ticketInputs.map((t, i) => (
-                  <FloatingInput
-                    key={i}
-                    label={`Ticket #${i + 1}`}
-                    className="font-mono text-center"
-                    value={t}
-                    onChange={(e) => {
-                      const copy = [...ticketInputs];
-                      copy[i] = e.target.value;
-                      setTicketInputs(copy);
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-4 flex gap-3 ">
-              <Button
-                variant="ghost"
-                className="flex-1 bg-transparent shadow-md text-gray-700 hover:bg-gray-100/20"
-                onClick={() => setPage("search")}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                className="flex-[2] font-bold text-lg h-12 shadow-md hover:shadow-primary/20 transition-all"
-                onClick={handleAddOwner}
-              >
-                Save
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </>
       )}
 
-      {/* ================= TABLE PAGE ================= */}
+      {/* ================= TABLE PAGE (Optimized for Mobile) ================= */}
       {page === "table" && (
-        <div className="overflow-x-auto">
-          <table className="table-auto w-full mt-6 border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-2 py-1">Name</th>
-                <th className="border px-2 py-1">Company</th>
-                <th className="border px-2 py-1">Branch</th>
-                <th className="border px-2 py-1">Division</th>
-                <th className="border px-2 py-1">Department</th>
-                <th className="border px-2 py-1">Designation</th>
-                <th className="border px-2 py-1">Reg Code</th>
-                <th className="border px-2 py-1">Gender</th>
-                <th className="border px-2 py-1">Tickets</th>
-              </tr>
-            </thead>
-            <tbody>
-              {owners.map((o, idx) => (
-                <tr key={o.id}>
-                  <td className="border px-2 py-1">{o.name}</td>
-                  <td className="border px-2 py-1">{o.company}</td>
-                  <td className="border px-2 py-1">{o.branch}</td>
-                  <td className="border px-2 py-1">{o.division}</td>
-                  <td className="border px-2 py-1">{o.department}</td>
-                  <td className="border px-2 py-1">{o.designation}</td>
-                  <td className="border px-2 py-1">{o.reg_code}</td>
-                  <td className="border px-2 py-1">{o.gender}</td>
-                  <td className="border px-2 py-1">{o.ticketNumbers.join(", ")}</td>
+        <>
+        <div className="w-full">
+          {/* Desktop Table: Hidden on Mobile */}
+          <div className="hidden md:block overflow-x-auto border rounded-lg">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-100 text-gray-700 uppercase text-xs">
+                <tr>
+                  <th className="px-4 py-3 border-b">Name</th>
+                  <th className="px-4 py-3 border-b">Company</th>
+                  <th className="px-4 py-3 border-b">Branch/Dept</th>
+                  <th className="px-4 py-3 border-b">Employ Id</th>
+                  <th className="px-4 py-3 border-b">Tickets</th>
+                  <th className="px-4 py-3 border-b text-center">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {owners.map((o) => (
+                  <tr key={o.id} className="hover:bg-gray-50">
+                    {/* Name Only View */}
+                    <td className="px-4 py-3">{o.name}</td>
 
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={() => setPage("search")}
-              className="px-4 py-2 bg-primary text-white font-semibold rounded shadow hover:bg-primary/90 transition"
-            >
-              Go to Search Page
-            </button>
+                    {/* Company */}
+                    <td className="px-4 py-3">
+                      {editingOwnerId === o.id ? (
+                        <Input
+                          value={editingData.company}
+                          onChange={(e) =>
+                            setEditingData((prev) => ({ ...prev, company: e.target.value }))
+                          }
+                          className="text-sm"
+                        />
+                      ) : (
+                        o.company
+                      )}
+                    </td>
+
+                    {/* Branch / Dept */}
+                    <td className="px-4 py-3 text-xs">
+                      {editingOwnerId === o.id ? (
+                        <div className="space-y-1">
+                          <Input
+                            value={editingData.branch}
+                            onChange={(e) =>
+                              setEditingData((prev) => ({ ...prev, branch: e.target.value }))
+                            }
+                            className="text-sm"
+                          />
+                          <Input
+                            value={editingData.department}
+                            onChange={(e) =>
+                              setEditingData((prev) => ({ ...prev, department: e.target.value }))
+                            }
+                            className="text-sm"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-semibold">{o.branch}</div>
+                          <div className="text-gray-500">{o.department}</div>
+                        </>
+                      )}
+                    </td>
+
+                    {/* Employee ID (Read Only) */}
+                    <td className="px-4 py-3">{o.reg_code}</td>
+
+                    {/* Tickets */}
+                    <td className="px-4 py-3">
+                      {editingOwnerId === o.id ? (
+                        <Input
+                          value={editingData.ticketNumbers.join(", ")}
+                          onChange={(e) =>
+                            setEditingData((prev) => ({
+                              ...prev,
+                              ticketNumbers: e.target.value.split(",").map((t) => t.trim()),
+                            }))
+                          }
+                          className="text-sm"
+                        />
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {o.ticketNumbers.map((t) => (
+                            <Badge
+                              key={t}
+                              variant="secondary"
+                              className="text-[10px]"
+                            >
+                              {t}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3 text-center space-x-1">
+                      {editingOwnerId === o.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setOwners((prev) =>
+                                prev.map((owner) =>
+                                  owner.id === o.id ? { ...owner, ...editingData } : owner
+                                )
+                              );
+                              setEditingOwnerId(null);
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingOwnerId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            setEditingOwnerId(o.id);
+                            setEditingData({ ...o });
+                          }}
+                        >
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile List: Visible only on small screens */}
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {owners.map((o) => (
+              <Card
+                key={o.id}
+                className="p-4 space-y-2 border-l-4 border-l-primary relative"
+              >
+                {editingOwnerId === o.id && (
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setOwners((prev) =>
+                          prev.map((owner) =>
+                            owner.id === o.id ? { ...owner, ...editingData } : owner
+                          )
+                        );
+                        setEditingOwnerId(null);
+                      }}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditingOwnerId(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+
+                {/* Edit / Display Mode */}
+                {editingOwnerId === o.id ? (
+                  <div className="space-y-2">
+                    <FloatingInput
+                      label="Full Name"
+                      value={editingData.name}
+                      onChange={(e) =>
+                        setEditingData((prev) => ({ ...prev, name: e.target.value }))
+                      }
+                    />
+                    <FloatingInput
+                      label="Company"
+                      value={editingData.company}
+                      onChange={(e) =>
+                        setEditingData((prev) => ({ ...prev, company: e.target.value }))
+                      }
+                    />
+                    <FloatingInput
+                      label="Branch"
+                      value={editingData.branch}
+                      onChange={(e) =>
+                        setEditingData((prev) => ({ ...prev, branch: e.target.value }))
+                      }
+                    />
+                    <FloatingInput
+                      label="Department"
+                      value={editingData.department}
+                      onChange={(e) =>
+                        setEditingData((prev) => ({ ...prev, department: e.target.value }))
+                      }
+                    />
+                    <FloatingInput
+                      label="Designation"
+                      value={editingData.designation}
+                      onChange={(e) =>
+                        setEditingData((prev) => ({ ...prev, designation: e.target.value }))
+                      }
+                    />
+                    <FloatingSelect
+                      label="Gender"
+                      value={editingData.gender}
+                      onValueChange={(v) =>
+                        setEditingData((prev) => ({ ...prev, gender: v }))
+                      }
+                    >
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                    </FloatingSelect>
+                    <FloatingInput
+                      label="Tickets (comma separated)"
+                      value={editingData.ticketNumbers.join(", ")}
+                      onChange={(e) =>
+                        setEditingData((prev) => ({
+                          ...prev,
+                          ticketNumbers: e.target.value.split(",").map((t) => t.trim()),
+                        }))
+                      }
+                    />
+                    <p className="text-xs text-gray-500">Employ Id: {o.reg_code}</p>
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-2 right-2 h-8 w-8 p-0"
+                      onClick={() => {
+                        setEditingOwnerId(o.id);
+                        setEditingData({ ...o });
+                      }}
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+
+                    <div className="flex justify-between items-start pr-8">
+                      <div>
+                        <h4 className="font-bold text-lg">{o.name}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {o.designation} • {o.reg_code}
+                        </p>
+                      </div>
+                      <Badge>{o.gender[0]}</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs border-t pt-2">
+                      <div>
+                        <span className="text-gray-400">Branch:</span> {o.branch}
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Dept:</span> {o.department}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {o.ticketNumbers.map((t) => (
+                        <Badge
+                          key={t}
+                          variant="outline"
+                          className="bg-blue-50"
+                        >
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </Card>
+            ))}
           </div>
         </div>
+
+        </>
       )}
 
       {/* ================= SEARCH PAGE ================= */}
       {page === "search" && (
-        <>
-        <Card>
-  <CardContent className="pt-6">
-    <div className="flex justify-center">
-      <div className="flex border rounded-md overflow-hidden w-full max-w-lg mx-auto">
-        <Input
-          placeholder="Enter ticket number"
-          value={searchTicket}
-          onChange={(e) => setSearchTicket(e.target.value)}
-          className="border-0 flex-1 rounded-none"
-        />
-        <Button
-          onClick={() => setSearchedTicket(searchTicket)}
-          className="flex-none px-3 rounded-none border-l-0 text-lg font-bold"
-        >
-          Search
-        </Button>
-      </div>
-
-    </div>
-  </CardContent>
-</Card>
-          {/* <Card>
-            <CardContent className="pt-6">
-              <div className="flex border rounded-md overflow-hidden">
-                <Input
-                  placeholder="Enter ticket number"
-                  value={searchTicket}
-                  onChange={(e) => setSearchTicket(e.target.value)}
-                  className="border-0"
-                />
-                <Button onClick={() => setSearchedTicket(searchTicket)}>
-                  <Search className="h-5 w-5" />
-                  Search
-                </Button>
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="pt-6 px-4 sm:px-6">
+              <div className="flex justify-center w-full">
+                <div className="flex w-full max-w-lg border rounded-md overflow-hidden shadow-sm">
+                  <Input
+                    placeholder="Enter ticket number"
+                    value={searchTicket}
+                    onChange={(e) => setSearchTicket(e.target.value)}
+                    className="border-0 flex-1 rounded-none focus-visible:ring-0 placeholder:font-bold placeholder:text-xl focus:font-bold focus:text-2xl transition-all duration-200"
+                  />
+                  <Button onClick={() => setSearchedTicket(searchTicket)} className="rounded-none px-6">Search</Button>
+                </div>
               </div>
             </CardContent>
-          </Card> */}
+          </Card>
 
-          {searchedTicket &&
-            (searchedOwner ? (
-              <div className="flex justify-center items-center bg-gray-50">
-                <IDCard
-                  name={searchedOwner.name}
-                  designation={searchedOwner.designation}
-                  regNo={searchedOwner.reg_code}
-                  department={searchedOwner.department}
-                  company={searchedOwner.company}
-                  branch={searchedOwner.branch}
-                  gender={searchedOwner.gender}
-                  ticket={searchedTicket}
-                />
+          {searchedTicket && (
+            <div className="flex justify-center p-2">
+              {searchedOwner ? (
+                <div className="flex justify-center items-center bg-gray-50">
+                 <IDCard
+                   name={searchedOwner.name}
+                   designation={searchedOwner.designation}
+                   regNo={searchedOwner.reg_code}
+                   department={searchedOwner.department}
+                   company={searchedOwner.company}
+                   branch={searchedOwner.branch}
+                   gender={searchedOwner.gender}
+                   ticket={searchedTicket}
+                 />
               </div>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                No ticket found
-              </div>
-            ))}
-        </>
+              ) : (
+                <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-xl w-full">
+                  No ticket found for "{searchedTicket}"
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
