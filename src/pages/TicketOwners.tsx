@@ -676,7 +676,7 @@ export default function TicketOwnersPage() {
                     placeholder="Enter ticket number"
                     value={searchTicket}
                     onChange={(e) => setSearchTicket(e.target.value)}
-                    className="border-0 flex-1 rounded-none focus-visible:ring-0 placeholder:font-bold placeholder:text-xl focus:font-bold focus:text-2xl transition-all duration-200"
+                    className="font-bold text-2xl border-0 flex-1 rounded-none focus-visible:ring-0 placeholder:font-bold placeholder:text-xl focus:font-bold focus:text-2xl transition-all duration-200"
                   />
                   <Button onClick={() => setSearchedTicket(searchTicket)} className="rounded-none px-6">Search</Button>
                 </div>
