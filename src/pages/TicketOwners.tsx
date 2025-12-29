@@ -1,5 +1,5 @@
 // TicketOwnersPage.tsx
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -22,6 +22,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { SelectItem } from "@/components/ui/select";
 import { StepBack, Pencil } from 'lucide-react';
+// fetch api functions
+import { getOwners, addOwner, updateOwner, deleteOwner } from "@/api/ticketOwnersApi";
 
 export interface TicketOwner {
   id: string;
@@ -43,68 +45,10 @@ export default function TicketOwnersPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ====== DUMMY DATA ======
-  const [owners, setOwners] = useState<TicketOwner[]>([
-    {
-      id: crypto.randomUUID(),
-      name: "Md Ashikur Rahman",
-      company: "Race Online Limited",
-      branch: "Dhaka",
-      division: "IT",
-      department: "IT & Billing",
-      designation: "Software Developer",
-      reg_code: "REG-2210",
-      gender: "Male",
-      ticketNumbers: ["T001", "T002"],
-    },
-    {
-      id: crypto.randomUUID(),
-      name: "Md Abu Rayhan",
-      company: "Race Online Limited",
-      branch: "Chittagong",
-      division: "Marketing",
-      department: "Sales",
-      designation: "Marketing Executive",
-      reg_code: "REG-2211",
-      gender: "Male",
-      ticketNumbers: ["T003"],
-    },
-    {
-      id: crypto.randomUUID(),
-      name: "Farhana Akter",
-      company: "Race Online Limited",
-      branch: "Dhaka",
-      division: "HR",
-      department: "Human Resources",
-      designation: "HR Manager",
-      reg_code: "REG-2212",
-      gender: "Female",
-      ticketNumbers: ["T004", "T005"],
-    },
-    {
-      id: crypto.randomUUID(),
-      name: "Rahim Uddin",
-      company: "Race Online Limited",
-      branch: "Khulna",
-      division: "Finance",
-      department: "Accounts",
-      designation: "Accountant",
-      reg_code: "REG-2213",
-      gender: "Male",
-      ticketNumbers: ["T006"],
-    },
-    {
-      id: crypto.randomUUID(),
-      name: "Sayed Hossain",
-      company: "Race Online Limited",
-      branch: "Sylhet",
-      division: "IT",
-      department: "IT & Billing",
-      designation: "Frontend Developer",
-      reg_code: "REG-2214",
-      gender: "Female",
-      ticketNumbers: ["T007", "T008"],
-    },
-  ]);
+  // const [owners, setOwners] = useState<TicketOwner[]>([]);
+  const [owners, setOwners] = useState<TicketOwner[]>([]);
+
+
 
   const [page, setPage] = useState<PageView>("search");
   const [, setRegistrations] = useState([]);
@@ -131,49 +75,131 @@ export default function TicketOwnersPage() {
   const [editingOwnerId, setEditingOwnerId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<Partial<TicketOwner>>({});
 
-  const handleAddOwner = () => {
-    const tickets = ticketInputs.map((t) => t.trim()).filter(Boolean);
+  // Fetch owners from API on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const response = await getOwners();
 
-    if (!name || tickets.length === 0) {
-      return toast({
-        title: "Error",
-        description: "Name and ticket number required",
-        variant: "destructive",
-      });
-    }
+        // এপিআই রেসপন্স থেকে ডেটা নেওয়া
+        const rawData = response?.data || [];
+        
+        const sanitizedData = rawData.map((owner: any) => ({
+          ...owner,
+          // ✅ এপিআই দিচ্ছে 'tickets' (String), আমরা সেটাকে 'ticketNumbers' (Array) করছি
+          ticketNumbers: owner.tickets 
+            ? owner.tickets.split(",").map((t: string) => t.trim()) 
+            : []
+        }));
 
-    const allTickets = owners.flatMap((o) => o.ticketNumbers);
-    const duplicate = tickets.find((t) => allTickets.includes(t));
-
-    if (duplicate) {
-      return toast({
-        title: "Duplicate Ticket",
-        description: `Ticket ${duplicate} already exists`,
-        variant: "destructive",
-      });
-    }
-
-    const newOwner: TicketOwner = {
-      id: crypto.randomUUID(),
-      branch,
-      division,
-      reg_code: regCode,
-      name,
-      department,
-      designation,
-      company,
-      gender,
-      ticketNumbers: tickets,
+        setOwners(sanitizedData);
+      } catch (err) {
+        console.error("Fetch error:", err);
+      }
     };
+    loadData();
+  }, []);
+  // useEffect(() => {
+  //   const loadData = async () => {
+  //     try {
+  //       const response = await getOwners(); // আপনার API কল
+        
+  //       // ডেটা সেফলি হ্যান্ডেল করা যাতে map error না আসে
+  //       // const data = Array.isArray(response) ? response : response?.data || [];
+  //       const data = (response as any).data;
+        
+  //       // নিশ্চিত করা যে ticketNumbers সবসময় একটি array
+  //       const sanitizedData = data.map((owner: any) => ({
+  //         ...owner,
+  //         ticketNumbers: Array.isArray(owner.ticketNumbers) ? owner.ticketNumbers : []
+  //       }));
 
-    setOwners((prev) => [...prev, newOwner]);
-    toast({ title: "Success", description: "Owner added" });
-    
-    // Reset
-    setName(""); setCompany(""); setBranch(""); setDivision("");
-    setDepartment(""); setDesignation(""); setRegCode(""); setGender("");
+  //       setOwners(sanitizedData);
+  //     } catch (err) {
+  //       console.error("Fetch error:", err);
+  //       toast({ title: "Error", description: "ডেটা লোড করতে ব্যর্থ হয়েছে", variant: "destructive" });
+  //     }
+  //   };
+
+  //   loadData();
+  // }, []); // [] মানে শুধু পেজ লোড হওয়ার সময় একবার কল হবে
+
+  const handleAddOwner = async () => {
+    try {
+      const tickets = ticketInputs.map((t) => t.trim()).filter(Boolean);
+
+      if (!name || tickets.length === 0) {
+        return toast({
+          title: "Error",
+          description: "Name and ticket number required",
+          variant: "destructive",
+        });
+      }
+
+      // ডুপ্লিকেট চেক (এডিট করার সময় নিজের টিকিট বাদ দিয়ে চেক করতে হয়)
+      const allTickets = owners
+        .filter(o => o.id !== editingOwnerId) // এডিট করলে নিজের টিকিট বাদ দিন
+        .flatMap((o) => o.ticketNumbers || []); // undefined হলে খালি অ্যারে ধরবে
+
+      const duplicate = tickets.find((t) => allTickets.includes(t));
+      if (duplicate) {
+        return toast({
+          title: "Duplicate Ticket",
+          description: `Ticket ${duplicate} already exists`,
+          variant: "destructive",
+        });
+      }
+
+      const payload = {
+        name,
+        company,
+        branch,
+        division,
+        department,
+        designation,
+        reg_code: regCode,
+        gender,
+        ticketNumbers: tickets,
+      };
+
+      if (editingOwnerId) {
+        // এডিট লজিক (যদি এডিট API থাকে)
+        // const updated = await updateOwner(editingOwnerId, payload);
+        // setOwners(prev => prev.map(o => o.id === editingOwnerId ? updated : o));
+      } else {
+        const savedOwner = await addOwner(payload);
+        
+        // ✅ গুরুত্বপূর্ণ: API থেকে আসা ডেটাতে ticketNumbers না থাকলে খালি অ্যারে দিন
+        const safeOwner = {
+          ...savedOwner,
+          ticketNumbers: savedOwner.ticketNumbers || [] 
+        };
+
+        setOwners((prev) => [...prev, safeOwner]);
+      }
+
+      toast({ title: "Success", description: "Operation successful" });
+
+      // ফর্ম রিসেট
+      resetForm();
+      setPage("table");
+    } catch (err: any) {
+      // ... আপনার ক্যাচ ব্লক
+    }
+  };
+
+  // একটি আলাদা ফাংশনে রিসেট লজিক রাখা ভালো
+  const resetForm = () => {
+    setName("");
+    setCompany("");
+    setBranch("");
+    setDivision("");
+    setDepartment("");
+    setDesignation("");
+    setRegCode("");
+    setGender("");
     setTicketInputs([""]);
-    setPage("table");
+    setEditingOwnerId(null);
   };
 
   /* ================= CSV EXPORT ================= */
@@ -227,118 +253,103 @@ export default function TicketOwnersPage() {
 
       {/* ================= ADD OWNER PAGE ================= */}
       {page === "add" && (
-        <>
-          <Card className="max-w-4xl mx-auto shadow-lg border-t-4 border-t-primary">
-            <CardHeader className="border-b bg-muted/30 p-4">
-              <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                <Plus className="h-5 w-5 text-primary" /> Registration Details
-              </CardTitle>
-            </CardHeader>
+        <Card className="max-w-4xl mx-auto shadow-lg border-t-4 border-t-primary">
+          <CardHeader className="border-b bg-muted/30 p-4">
+            <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" /> Registration Details
+            </CardTitle>
+          </CardHeader>
 
-            <CardContent className="pt-6 space-y-6 p-4 sm:p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FloatingInput label="Full Name" onChange={(e) => setName(e.target.value)} />
-                <FloatingInput label="Company" onChange={(e) => setCompany(e.target.value)} />
-                <FloatingInput label="Branch" onChange={(e) => setBranch(e.target.value)} />
-                <FloatingInput label="Division" onChange={(e) => setDivision(e.target.value)} />
-                <FloatingInput label="Department" onChange={(e) => setDepartment(e.target.value)} />
-                <FloatingInput label="Designation" onChange={(e) => setDesignation(e.target.value)} />
-                <FloatingInput label="Employ Id" onChange={(e) => setRegCode(e.target.value)} />
-                <FloatingSelect label="Gender" value={gender} onValueChange={setGender} className="w-full">
-                  <SelectItem value="Male">Male</SelectItem>
-                  <SelectItem value="Female">Female</SelectItem>
-                </FloatingSelect>
+          <CardContent className="pt-6 space-y-6 p-4 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FloatingInput label="Full Name" value={name} onChange={(e) => setName(e.target.value)} />
+              <FloatingInput label="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+              <FloatingInput label="Branch" value={branch} onChange={(e) => setBranch(e.target.value)} />
+              <FloatingInput label="Division" value={division} onChange={(e) => setDivision(e.target.value)} />
+              <FloatingInput label="Department" value={department} onChange={(e) => setDepartment(e.target.value)} />
+              <FloatingInput label="Designation" value={designation} onChange={(e) => setDesignation(e.target.value)} />
+              <FloatingInput label="Employ Id" value={regCode} onChange={(e) => setRegCode(e.target.value)} />
+              <FloatingSelect label="Gender" value={gender} onValueChange={setGender} className="w-full">
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+              </FloatingSelect>
+            </div>
+
+            {/* Ticket Numbers Section */}
+            <div className="border-t pt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                  <Badge variant="outline" className="rounded-full h-6 w-6 p-0 flex items-center justify-center bg-primary/10">
+                    {ticketInputs.length}
+                  </Badge>
+                  Ticket Numbers
+                </h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTicketInputs([...ticketInputs, ""])}
+                  className="text-xs border-dashed w-full sm:w-auto"
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add Another
+                </Button>
               </div>
 
-              {/* Ticket Numbers Section */}
-              <div className="border-t pt-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                  <h3 className="text-sm font-bold flex items-center gap-2">
-                    <Badge variant="outline" className="rounded-full h-6 w-6 p-0 flex items-center justify-center bg-primary/10">
-                      {ticketInputs.length}
-                    </Badge>
-                    Ticket Numbers
-                  </h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setTicketInputs([...ticketInputs, ""])}
-                    className="text-xs border-dashed w-full sm:w-auto"
-                  >
-                    <Plus className="h-3 w-3 mr-1" /> Add Another
-                  </Button>
-                </div>
-
-                {/* Dynamic Ticket Inputs */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {ticketInputs.map((t, i) => (
-                    <div key={i} className="relative">
-                      <FloatingInput
-                        label={`#${i + 1}`}
-                        value={t}
-                        onChange={(e) => {
-                          const copy = [...ticketInputs];
-                          copy[i] = e.target.value;
+              {/* Dynamic Ticket Inputs */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {ticketInputs.map((t, i) => (
+                  <div key={i} className="relative">
+                    <FloatingInput
+                      label={`#${i + 1}`}
+                      value={t}
+                      onChange={(e) => {
+                        const copy = [...ticketInputs];
+                        copy[i] = e.target.value;
+                        setTicketInputs(copy);
+                      }}
+                    />
+                    {ticketInputs.length > 1 && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-1 right-1 h-5 w-5 p-0"
+                        onClick={() => {
+                          const copy = ticketInputs.filter((_, idx) => idx !== i);
                           setTicketInputs(copy);
                         }}
-                      />
-                      {/* Cancel/Delete Ticket Button */}
-                      {ticketInputs.length > 1 && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="absolute top-1 right-1 h-5 w-5 p-0"
-                          onClick={() => {
-                            const copy = ticketInputs.filter((_, idx) => idx !== i);
-                            setTicketInputs(copy);
-                          }}
-                        >
-                          ✕
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      >
+                        ✕
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
+            </div>
 
-              {/* Actions */}
-              <div className="pt-4 flex flex-col sm:flex-row gap-3">
-                <Button variant="ghost" className="order-2 sm:order-1 flex-1 shadow-sm" onClick={() => setPage("search")}>
-                  Cancel
-                </Button>
+            {/* Actions */}
+            <div className="pt-4 flex flex-col sm:flex-row gap-3">
+              <Button variant="ghost" className="order-2 sm:order-1 flex-1 shadow-sm" onClick={() => setPage("search")}>
+                Cancel
+              </Button>
 
-                <Button
-                  className="order-1 sm:order-2 flex-[2] font-bold h-12"
-                  onClick={() => {
-                    // Trim tickets and filter empty
-                    const tickets = ticketInputs.map(t => t.trim()).filter(Boolean);
+              <Button
+                className="order-1 sm:order-2 flex-[2] font-bold h-12"
+                onClick={async () => {
+                  // ১. টিকিট ডাটা ক্লিন করা
+                  const tickets = ticketInputs.map(t => t.trim()).filter(Boolean);
 
-                    // Validate Name and Tickets
-                    if (!name || tickets.length === 0) {
-                      return toast({
-                        title: "Error",
-                        description: "Name and at least one ticket are required",
-                        variant: "destructive",
-                      });
-                    }
+                  // ২. ভ্যালিডেশন
+                  if (!name || tickets.length === 0) {
+                    return toast({
+                      title: "Error",
+                      description: "Name and at least one ticket are required",
+                      variant: "destructive",
+                    });
+                  }
 
-                    // Check for duplicate tickets (both within form and existing owners)
-                    const allTickets = owners.flatMap(o => o.ticketNumbers);
-                    const duplicate = tickets.find(t => allTickets.includes(t));
-                    const duplicateInForm = tickets.find((t, idx) => tickets.indexOf(t) !== idx);
-
-                    if (duplicate || duplicateInForm) {
-                      return toast({
-                        title: "Duplicate Ticket",
-                        description: `Ticket ${duplicate || duplicateInForm} already exists`,
-                        variant: "destructive",
-                      });
-                    }
-
-                    // Add to registrations and owners
-                    const newEntry = {
-                      id: crypto.randomUUID(),
+                  try {
+                    // ৩. এপিআই এর জন্য পেলোড তৈরি (পেলোডে 'id' পাঠানো যাবে না)
+                    const payload = {
                       name,
                       company,
                       branch,
@@ -350,34 +361,38 @@ export default function TicketOwnersPage() {
                       ticketNumbers: tickets,
                     };
 
-                    setRegistrations(prev => [...prev, newEntry]);
-                    setOwners(prev => [...prev, newEntry]);
+                    // ৪. এপিআই কল করে ডাটাবেসে সেভ করা
+                    const savedOwner = await addOwner(payload);
 
-                    // Reset form
-                    setName("");
-                    setCompany("");
-                    setBranch("");
-                    setDivision("");
-                    setDepartment("");
-                    setDesignation("");
-                    setRegCode("");
-                    setGender("");
-                    setTicketInputs([""]);
+                    // ৫. লোকাল স্টেট আপডেট করা যাতে রিফ্রেশ ছাড়াই টেবিলে ডাটা দেখা যায়
+                    setOwners(prev => [...prev, savedOwner]);
 
+                    // ৬. সাকসেস মেসেজ ও ফর্ম রিসেট
                     toast({
                       title: "Success",
-                      description: "Owner added successfully",
+                      description: "Data saved to database successfully!",
                     });
 
+                    // ফর্ম রিসেট করার ফাংশন কল
+                    resetForm();
                     setPage("table");
-                  }}
-                >
-                  Save
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </>
+
+                  } catch (err: any) {
+                    console.error("Database Save Error:", err);
+                    toast({
+                      title: "Save Failed",
+                      description: err.response?.data?.message || "Could not save to database",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
       )}
 
       {/* ================= TABLE PAGE (Optimized for Mobile) ================= */}
@@ -398,12 +413,9 @@ export default function TicketOwnersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {owners.map((o) => (
+                {Array.isArray(owners) && owners.map((o) => (
                   <tr key={o.id} className="hover:bg-gray-50">
-                    {/* Name Only View */}
                     <td className="px-4 py-3">{o.name}</td>
-
-                    {/* Company */}
                     <td className="px-4 py-3">
                       {editingOwnerId === o.id ? (
                         <Input
@@ -417,8 +429,6 @@ export default function TicketOwnersPage() {
                         o.company
                       )}
                     </td>
-
-                    {/* Branch / Dept */}
                     <td className="px-4 py-3 text-xs">
                       {editingOwnerId === o.id ? (
                         <div className="space-y-1">
@@ -444,60 +454,61 @@ export default function TicketOwnersPage() {
                         </>
                       )}
                     </td>
-
-                    {/* Employee ID (Read Only) */}
                     <td className="px-4 py-3">{o.reg_code}</td>
-
-                    {/* Tickets */}
                     <td className="px-4 py-3">
                       {editingOwnerId === o.id ? (
                         <Input
-                          value={editingData.ticketNumbers.join(", ")}
+                          // এডিট করার সময় অ্যারে কে আবার স্ট্রিং করে দেখানো
+                          value={editingData.ticketNumbers?.join(", ") || ""}
                           onChange={(e) =>
                             setEditingData((prev) => ({
                               ...prev,
-                              ticketNumbers: e.target.value.split(",").map((t) => t.trim()),
+                              // ইউজার টাইপ করলে সেটাকে আবার অ্যারেতে রূপান্তর
+                              ticketNumbers: e.target.value.split(",").map((t) => t.trim())
                             }))
                           }
                           className="text-sm"
                         />
                       ) : (
                         <div className="flex flex-wrap gap-1">
-                          {o.ticketNumbers.map((t) => (
-                            <Badge
-                              key={t}
-                              variant="secondary"
-                              className="text-[10px]"
-                            >
+                          {/* ম্যাপিং এর পর টিকিটগুলো এখানে দেখা যাবে */}
+                          {o.ticketNumbers?.map((t) => (
+                            <Badge key={t} variant="secondary" className="text-[10px]">
                               {t}
                             </Badge>
                           ))}
                         </div>
                       )}
                     </td>
-
-                    {/* Actions */}
                     <td className="px-4 py-3 text-center space-x-1">
                       {editingOwnerId === o.id ? (
                         <>
                           <Button
                             size="sm"
-                            onClick={() => {
-                              setOwners((prev) =>
-                                prev.map((owner) =>
-                                  owner.id === o.id ? { ...owner, ...editingData } : owner
-                                )
-                              );
-                              setEditingOwnerId(null);
+                            onClick={async () => {
+                              try {
+                                // Call API to update owner
+                                await updateOwner(o.id, editingData);
+                                // Update local state
+                                setOwners((prev) =>
+                                  prev.map((owner) =>
+                                    owner.id === o.id ? { ...owner, ...editingData } : owner
+                                  )
+                                );
+                                setEditingOwnerId(null);
+                                toast({ title: "Success", description: "Owner updated" });
+                              } catch (err: any) {
+                                toast({
+                                  title: "Error",
+                                  description: err?.response?.data?.message || "Failed to update owner",
+                                  variant: "destructive",
+                                });
+                              }
                             }}
                           >
                             Save
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEditingOwnerId(null)}
-                          >
+                          <Button size="sm" variant="ghost" onClick={() => setEditingOwnerId(null)}>
                             Cancel
                           </Button>
                         </>
@@ -645,12 +656,8 @@ export default function TicketOwnersPage() {
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1 pt-1">
-                      {o.ticketNumbers.map((t) => (
-                        <Badge
-                          key={t}
-                          variant="outline"
-                          className="bg-blue-50"
-                        >
+                      {o.ticketNumbers?.map((t) => (
+                        <Badge key={t} variant="outline" className="bg-blue-50">
                           {t}
                         </Badge>
                       ))}
