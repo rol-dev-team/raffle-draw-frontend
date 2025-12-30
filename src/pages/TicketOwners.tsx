@@ -594,7 +594,20 @@ const handleSearchTicket = async () => {
                   <Input
                     placeholder="Enter ticket number"
                     value={searchTicket}
-                    onChange={(e) => setSearchTicket(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSearchTicket(value);
+
+                      // 👇 ইনপুট খালি হলে সব clear
+                      if (!value) {
+                        setSearchedTicket("");
+                        setTicketOwner(null);
+                        setLoading(false);
+                        setError(null);
+                      }
+                    }}
+                    // value={searchTicket}
+                    // onChange={(e) => setSearchTicket(e.target.value)}
                     className="font-bold text-2xl border-0 flex-1 rounded-none focus-visible:ring-0 placeholder:font-bold placeholder:text-xl focus:font-bold focus:text-2xl transition-all duration-200"
                   />
                   <Button onClick={handleSearchTicket} className="rounded-none px-6">Search</Button>
@@ -611,7 +624,7 @@ const handleSearchTicket = async () => {
               {loading && (
                 <div>
                   <Placeholder.Paragraph rows={8} />
-                  <Loader className="loader w-10 h-10" backdrop content="loading..." vertical />
+                  <Loader className="loader w-10 h-10 text-4xl font-bold text-gray-600" backdrop content="loading..." vertical />
                 </div>
               )}
 
@@ -640,31 +653,6 @@ const handleSearchTicket = async () => {
               )}
             </div>
           )}
-
-
-
-
-
-
-          {/* {searchedTicket &&
-            (searchedOwner ? (
-              <div className="flex justify-center items-center bg-gray-50">
-                <IDCard
-                  name={searchedOwner.name}
-                  designation={searchedOwner.designation}
-                  regNo={searchedOwner.reg_code}
-                  department={searchedOwner.department}
-                  company={searchedOwner.company}
-                  branch={searchedOwner.branch}
-                  gender={searchedOwner.gender}
-                  ticket={searchedTicket}
-                />
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                No ticket found
-              </div>
-            ))} */}
         </>
       )}
     </div>
