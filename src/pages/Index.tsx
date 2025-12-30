@@ -133,4 +133,3 @@ const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
 };
 
 export default Index;
-

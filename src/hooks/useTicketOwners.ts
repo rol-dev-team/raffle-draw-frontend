@@ -1,10 +1,14 @@
-import { useState, useCallback, useRef } from 'react';
-import { TicketOwner } from '@/types/raffle';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { TicketOwner, TicketFromApi, EmployeeFromApi } from '@/types/raffle';
+import { getTickets} from './../services/ticketApi';
+import { getEmployees } from './../services/employeeApi';
 
 export function useTicketOwners() {
   const [owners, setOwners] = useState<TicketOwner[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const ownersRef = useRef<TicketOwner[]>([]);
-  
+
   // Update ref whenever we update state
   const setOwnersWithRef = useCallback((updater: TicketOwner[] | ((prev: TicketOwner[]) => TicketOwner[])) => {
     setOwners(prev => {
@@ -13,6 +17,51 @@ export function useTicketOwners() {
       return next;
     });
   }, []);
+
+  // Fetch employees and their tickets from the API
+  const fetchOwners = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [employeesRes, ticketsRes] = await Promise.all([
+        getEmployees(),
+        getTickets()
+      ]);
+
+      const employees = employeesRes.data.data || [];
+      const tickets = ticketsRes.data.data || [];
+
+      // Group tickets by employee
+      const ticketsByEmployee = tickets.reduce((acc, ticket) => {
+        if (!acc[ticket.employee_id]) {
+          acc[ticket.employee_id] = [];
+        }
+        acc[ticket.employee_id].push(ticket.ticket_no);
+        return acc;
+      }, {} as Record<number, string[]>);
+
+      // Map employees to TicketOwner format
+      const mappedOwners: TicketOwner[] = employees.map(emp => ({
+        id: emp.id.toString(),
+        name: emp.name,
+        email: emp.email,
+        ticketNumbers: ticketsByEmployee[emp.id] || [],
+        apiId: emp.id,
+      }));
+
+      setOwnersWithRef(mappedOwners);
+    } catch (err) {
+      console.error('Failed to fetch owners:', err);
+      setError('Failed to load ticket owners from server');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [setOwnersWithRef]);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchOwners();
+  }, [fetchOwners]);
 
   const addOwner = useCallback((name: string, ticketNumbers: string[]) => {
     const newOwner: TicketOwner = {
@@ -60,6 +109,8 @@ export function useTicketOwners() {
 
   return {
     owners,
+    isLoading,
+    error,
     addOwner,
     updateOwner,
     deleteOwner,
@@ -67,5 +118,6 @@ export function useTicketOwners() {
     getAllTicketsFromOwners,
     addBulkOwners,
     resetOwners,
+    refetchOwners: fetchOwners,
   };
 }
