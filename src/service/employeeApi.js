@@ -40,6 +40,19 @@ export const getEmployeeById = async (id) => {
 };
 
 /**
+ * Get employee by Ticket
+ * GET /employees/search-by-ticket/{id}
+ */
+export const getEmployeeByTicket = async (id) => {
+  try {
+    const response = await apiClient.get(`/employees/search-by-ticket/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
  * Update employee
  * PUT /employees/{id}
  */

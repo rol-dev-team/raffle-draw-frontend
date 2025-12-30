@@ -1,9 +1,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Formik, Form, useFormik } from "formik";
+import { Loader, Placeholder } from 'rsuite';
 import { validationSchemas } from "@/schema/validationSchemas";
 // store import api
-import { getEmployees, storeEmployee } from "@/service/employeeApi";
+import { getEmployees, storeEmployee, getEmployeeByTicket } from "@/service/employeeApi";
 import {
   Card,
   CardContent,
@@ -26,6 +27,7 @@ import { FloatingSelect } from "@/components/ui/FloatingSelect";
 import IDCard from "@/components/raffle/IDCard";
 import {
   Users,
+  ArrowLeft,
   Plus,
   TableIcon,
   Upload,
@@ -66,10 +68,9 @@ export default function TicketOwnersPage() {
   /* ================= SEARCH ================= */
   const [searchTicket, setSearchTicket] = useState("");
   const [searchedTicket, setSearchedTicket] = useState("");
-
-  const searchedOwner = searchedTicket
-    ? owners.find((o) => o.ticketNumbers.includes(searchedTicket.trim()))
-    : null;
+  const [ticketOwner, setTicketOwner] = useState<TicketOwner | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   /* ================= ADD OWNER FORM ================= */
   const [branch, setBranch] = useState("");
@@ -239,6 +240,34 @@ export default function TicketOwnersPage() {
   }
 };
 
+/* ================= SEARCH FUNCTION ================= */
+const handleSearchTicket = async () => {
+  if (!searchTicket) return;
+
+  // Start everything
+  setLoading(true);
+  setError(null);
+  setTicketOwner(null);
+  setSearchedTicket(searchTicket);
+
+  // Start the minimum 1-second timer
+  const timer = new Promise((resolve) => setTimeout(resolve, 1000));
+
+  try {
+    // Run API call and Timer at the same time
+    const [response] = await Promise.all([
+      getEmployeeByTicket(searchTicket),
+      timer // This forces the "await" to take at least 1 second
+    ]);
+
+    setTicketOwner(response.data);
+  } catch (err) {
+    setError("Ticket not found");
+  } finally {
+    setLoading(false); // Only stops after both API and 1s timer are done
+  }
+};
+
   useEffect(() => {
     getEmployees()
     .then(res => {
@@ -255,7 +284,12 @@ export default function TicketOwnersPage() {
       {/* HEADER */}
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between px-1">
         <div className="flex items-center gap-2 min-w-0">
-          <Users className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+          {page === "table" && (
+            <button onClick={() => setPage("search")} className="col-span-1 font-bold bg-gray-200 hover:bg-gray-300 rounded-md p-2">
+              <ArrowLeft className="w-5 h-5 text-xl" />
+            </button>
+          )}
+          
           <h1 className="text-xl sm:text-2xl font-bold truncate">Tickets</h1>
         </div>
 
@@ -274,9 +308,9 @@ export default function TicketOwnersPage() {
               <Button variant="outline" onClick={handleExport} className="col-span-1">
                 <Download className="h-4 w-4 mr-1" /> Export
               </Button>
-              <Button onClick={() => setPage("search")} className="col-span-1 bg-black text-white">
+              {/* <Button onClick={() => setPage("search")} className="col-span-1 bg-black text-white">
                 <StepBack className="w-4 h-4" /> Back
-              </Button>
+              </Button> */}
             </>
           )}
 
@@ -489,55 +523,63 @@ export default function TicketOwnersPage() {
 
       {/* ================= TABLE PAGE ================= */}
       {page === "table" && (
-        <div className="overflow-x-auto">
-          <table className="table-auto w-full mt-6 border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-2 py-1">Name</th>
-                <th className="border px-2 py-1">Company</th>
-                <th className="border px-2 py-1">Branch</th>
-                <th className="border px-2 py-1">Division</th>
-                <th className="border px-2 py-1">Department</th>
-                <th className="border px-2 py-1">Designation</th>
-                <th className="border px-2 py-1">Reg Code</th>
-                <th className="border px-2 py-1">Gender</th>
-                <th className="border px-2 py-1">Tickets</th>
-              </tr>
-            </thead>
-            <tbody>
-              {owners.map((o, idx) => (
-                <tr key={o.id}>
-                  <td className="border px-2 py-1">{o.name}</td>
-                  <td className="border px-2 py-1">{o.company}</td>
-                  <td className="border px-2 py-1">{o.branch}</td>
-                  <td className="border px-2 py-1">{o.division}</td>
-                  <td className="border px-2 py-1">{o.department}</td>
-                  <td className="border px-2 py-1">{o.designation}</td>
-                  <td className="border px-2 py-1">{o.reg_code}</td>
-                  <td className="border px-2 py-1">{o.gender}</td>
-                  <td className="border px-2 py-1">
-                  <div className="flex flex-wrap gap-1">
-                    {o.tickets 
-                      ? o.tickets.split(",").map((t, index) => (
-                          <Badge key={index} variant="secondary" className="text-[10px]">
-                            {t.trim()}
-                          </Badge>
-                        ))
-                      : "No Tickets"}
-                  </div>
-                </td>
+        <div className="mt-8 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-100 border-b border-gray-200">
+                  <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Name</th>
+                  <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Company</th>
+                  <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Branch</th>
+                  <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Division</th>
+                  <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Department</th>
+                  <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Designation</th>
+                  <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Reg Code</th>
+                  <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Gender</th>
+                  {/* Added min-width here to make header match the body column */}
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500 min-w-[300px]">Tickets</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={() => setPage("search")}
-              className="px-4 py-2 bg-primary text-white font-semibold rounded shadow hover:bg-primary/90 transition"
-            >
-              Go to Search Page
-            </button>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {owners.map((o) => (
+                  <tr 
+                    key={o.id} 
+                    /* Changed hover behavior to a cleaner full-row gray/blue tint */
+                    className="group hover:bg-slate-50 transition-colors duration-200 ease-in-out cursor-default"
+                  >
+                    <td className="px-4 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">{o.name}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{o.company}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600">{o.branch}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600">{o.division}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600">{o.department}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600">{o.designation}</td>
+                    <td className="px-4 py-4 text-sm font-mono text-gray-500 bg-gray-50/50">{o.reg_code}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${o.gender === 'Male' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-pink-50 text-pink-600 border border-pink-100'}`}>
+                        {o.gender}
+                      </span>
+                    </td>
+                    
+                    {/* Wider Ticket Column with min-width and better padding */}
+                    <td className="px-6 py-4 min-w-[300px] border-l border-gray-50">
+                      <div className="flex flex-wrap gap-2">
+                        {o.tickets 
+                          ? o.tickets.split(",").map((t, index) => (
+                              <Badge 
+                                key={index} 
+                                variant="secondary" 
+                                className="bg-white text-slate-700 border border-slate-200 text-[11px] font-medium shadow-sm px-2 py-0.5"
+                              >
+                                {t.trim()}
+                              </Badge>
+                            ))
+                          : <span className="text-xs italic text-gray-400">No active tickets</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -545,29 +587,66 @@ export default function TicketOwnersPage() {
       {/* ================= SEARCH PAGE ================= */}
       {page === "search" && (
         <>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex justify-center">
-              <div className="flex border rounded-md overflow-hidden w-full max-w-lg mx-auto">
-                <Input
-                  placeholder="Enter ticket number"
-                  value={searchTicket}
-                  onChange={(e) => setSearchTicket(e.target.value)}
-                  className="border-0 flex-1 rounded-none"
-                />
-                <Button
-                  onClick={() => setSearchedTicket(searchTicket)}
-                  className="flex-none px-3 rounded-none border-l-0 text-lg font-bold"
-                >
-                  Search
-                </Button>
+          <Card>
+            <CardContent className="pt-6 px-4 sm:px-6">
+              <div className="flex justify-center w-full">
+                <div className="flex w-full max-w-lg border rounded-md overflow-hidden shadow-sm">
+                  <Input
+                    placeholder="Enter ticket number"
+                    value={searchTicket}
+                    onChange={(e) => setSearchTicket(e.target.value)}
+                    className="font-bold text-2xl border-0 flex-1 rounded-none focus-visible:ring-0 placeholder:font-bold placeholder:text-xl focus:font-bold focus:text-2xl transition-all duration-200"
+                  />
+                  <Button onClick={handleSearchTicket} className="rounded-none px-6">Search</Button>
+                </div>
               </div>
+            </CardContent>
+          </Card>
 
+          
+          {/* This block is now visible as soon as you click search */}
+          {searchedTicket && (
+            <div className="flex justify-center items-center min-h-[200px] w-full">
+              {/* 1. Show loader if loading is true */}
+              {loading && (
+                <div>
+                  <Placeholder.Paragraph rows={8} />
+                  <Loader className="loader w-10 h-10" backdrop content="loading..." vertical />
+                </div>
+              )}
+
+              {/* 2. Show Results only when loading is finished */}
+              {!loading && (
+                <>
+                  {ticketOwner ? (
+                    <div className="flex justify-center items-center bg-gray-50 w-full animate-in fade-in duration-500">
+                      <IDCard
+                        name={ticketOwner.name}
+                        designation={ticketOwner.designation}
+                        regNo={ticketOwner.reg_code}
+                        department={ticketOwner.department}
+                        company={ticketOwner.company}
+                        branch={ticketOwner.branch}
+                        gender={ticketOwner.gender}
+                        ticket={searchedTicket}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      {error || "No ticket found"}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          )}
 
-          {searchedTicket &&
+
+
+
+
+
+          {/* {searchedTicket &&
             (searchedOwner ? (
               <div className="flex justify-center items-center bg-gray-50">
                 <IDCard
@@ -585,7 +664,7 @@ export default function TicketOwnersPage() {
               <div className="text-center text-muted-foreground">
                 No ticket found
               </div>
-            ))}
+            ))} */}
         </>
       )}
     </div>

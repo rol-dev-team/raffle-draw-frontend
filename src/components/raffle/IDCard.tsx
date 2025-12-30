@@ -74,7 +74,7 @@ const Info = ({ icon, text }) => (
 );
 
 /* styles EXACTLY same – unchanged */
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   wrapper: {
     display: "flex",
     alignItems: "center",
@@ -85,7 +85,7 @@ const styles = {
     borderRadius: "14px",
     overflow: "hidden",
     fontFamily: "Inter, sans-serif"
-  },
+  } as React.CSSProperties,
 
   avatarWrap: {
     padding: "30px"
@@ -143,10 +143,10 @@ const styles = {
     borderBottomLeftRadius: "120px",
     padding: "40px 35px",
     display: "flex",
-    flexDirection: "column",
+    flexDirection: "column" as const,
     justifyContent: "center",
     gap: "14px"
-  },
+  } as React.CSSProperties,
 
   infoRow: {
     display: "flex",
