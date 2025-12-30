@@ -8,9 +8,10 @@ export const validationSchemas = yup.object({
 
   company: yup.string().required("Company name is required"),
   branch: yup.string().required("Branch is required"),
-  division: yup.string().nullable(),
-  department: yup.string().nullable(),
-  designation: yup.string().nullable(),
+  division: yup.string().required("Division is required"),
+  department: yup.string().required("Department is required"),
+  designation: yup.string().required("Designation is required"),
+
 
   reg_code: yup.string().required("Employee ID is required"),
 

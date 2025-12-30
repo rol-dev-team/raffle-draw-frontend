@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { Formik, Form } from "formik";
+import { Formik, Form, useFormik } from "formik";
 import { validationSchemas } from "@/schema/validationSchemas";
 // store import api
 import { getEmployees, storeEmployee } from "@/service/employeeApi";
@@ -30,7 +30,7 @@ import {
   TableIcon,
   Upload,
   Download,
-  Search,
+  StepBack,
 } from "lucide-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/use-toast";
@@ -94,6 +94,25 @@ export default function TicketOwnersPage() {
     gender: "",
     tickets: [""],
   };
+  const formik = useFormik({
+    initialValues: {
+      name: "",
+      company: "",
+      branch: "",
+      division: "",
+      department: "",
+      designation: "",
+      reg_code: "",
+      gender: "",
+      tickets: [""],
+    },
+    validationSchema: validationSchemas,
+    validateOnBlur: true,   // ✅ REQUIRED
+    validateOnChange: false, // ✅ avoids noisy errors
+    onSubmit: (values) => {
+      console.log(values);
+    },
+  });
 
   const handleAddOwner = async (values: any, { resetForm }: any) => {
 
@@ -163,7 +182,7 @@ export default function TicketOwnersPage() {
       o.designation,
       o.company,
       o.gender,
-      o.ticketNumbers.join(","),
+      o.tickets.join(","),
     ]);
 
     const csv = [headers, ...rows]
@@ -220,7 +239,7 @@ export default function TicketOwnersPage() {
   }
 };
 
-useEffect(() => {
+  useEffect(() => {
     getEmployees()
     .then(res => {
       setOwners(res.data);
@@ -234,332 +253,238 @@ useEffect(() => {
   return (
     <div className="p-4 md:p-6 max-w-full space-y-6">
       {/* HEADER */}
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="h-6 w-6" />
-          <h1 className="text-2xl font-bold">Tickets</h1>
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between px-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <Users className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-bold truncate">Tickets</h1>
         </div>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:flex-row flex-wrap gap-2 w-full lg:w-auto">
+          <div className="flex gap-2 col-span-2 sm:col-auto">
+            <Button variant="outline" onClick={() => setPage("table")} className="flex-1 sm:w-12">
+              <TableIcon className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1">
+              <Upload className="h-4 w-4 mr-1" /> Bulk
+            </Button>
+          </div>
+          
+          {page === "table" && (
+            <>
+              <Button variant="outline" onClick={handleExport} className="col-span-1">
+                <Download className="h-4 w-4 mr-1" /> Export
+              </Button>
+              <Button onClick={() => setPage("search")} className="col-span-1 bg-black text-white">
+                <StepBack className="w-4 h-4" /> Back
+              </Button>
+            </>
+          )}
 
-          <Button variant="outline" onClick={() => setPage("table")}>
-            <TableIcon className="h-4 w-4" />
-          </Button>
-
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}
-            >
-            <input ref={fileInputRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" /> 
-            <Upload className="h-4 w-4 mr-1" /> Bulk Import
-          </Button>
-
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-1" /> Export
-          </Button>
-
-          <Button onClick={() => setPage("add")}>
+          <Button onClick={() => setPage("add")} className="col-span-2 sm:col-auto">
             <Plus className="h-4 w-4 mr-1" /> Add Ticket
           </Button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-          />
+          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" />
         </div>
       </div>
 
       {/* ================= ADD OWNER PAGE ================= */}
       {page === "add" && (
         <Formik
-  initialValues={initialValues}
-  validationSchema={validationSchemas}
-  onSubmit={handleAddOwner}
->
-  {({
-    values, errors, touched, handleChange, handleBlur, setFieldValue, setFieldTouched
-  }) => (
-    <Form>
-      <Card className="max-w-4xl mx-auto shadow-lg border-t-4 border-t-primary">
-        <CardHeader className="border-b bg-muted/30">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <Plus className="h-5 w-5 text-primary" />
-            Registration Details
-          </CardTitle>
-        </CardHeader>
-        
+          initialValues={initialValues}
+          validationSchema={validationSchemas}
+          onSubmit={handleAddOwner}
+        >
+          {({
+            values, errors, touched, handleChange, handleBlur, setFieldValue, setFieldTouched
+          }) => (
+            <Form>
+              <Card className="max-w-4xl mx-auto shadow-lg border-t-4 border-t-primary">
+                <CardHeader className="border-b bg-muted/30">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Plus className="h-5 w-5 text-primary" />
+                    Registration Details
+                  </CardTitle>
+                </CardHeader>
+                
 
-        <CardContent className="pt-6 space-y-6">
-          {/* Main Form Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FloatingInput
-              label="Full Name"
-              name="name"
-              value={values.name}
-              onBlur={handleBlur}
-              onChange={handleChange}
-              error={touched.name && errors.name}
-            />
+                <CardContent className="pt-6 space-y-6">
+                  {/* Main Form Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Full Name */}
+                    <FloatingInput
+                      label="Full Name"
+                      name="name"
+                      value={values.name}
+                      onBlur={handleBlur}
+                      onChange={handleChange}
+                      error={touched.name && errors.name ? String(errors.name) : undefined}
+                    />
 
-            <FloatingInput
-              label="Company"
-              name="company"
-              value={values.company}
-              onChange={handleChange}
-              error={touched.company && errors.company}
-            />
+                    {/* Company */}
+                    <FloatingInput
+                      label="Company"
+                      name="company"
+                      value={values.company}
+                      onBlur={handleBlur}
+                      onChange={handleChange}
+                      error={touched.company && errors.company ? String(errors.company) : undefined}
+                    />
 
-            <FloatingInput
-              label="Branch"
-              name="branch"
-              value={values.branch}
-              onChange={handleChange}
-              error={touched.branch && errors.branch}
-            />
+                    {/* Branch */}
+                    <FloatingInput
+                      label="Branch"
+                      name="branch"
+                      value={values.branch}
+                      onBlur={handleBlur}
+                      onChange={handleChange}
+                      error={touched.branch && errors.branch ? String(errors.branch) : undefined}
+                    />
 
-            <FloatingInput
-              label="Division"
-              name="division"
-              value={values.division}
-              onChange={handleChange}
-            />
+                    {/* Division */}
+                    <FloatingInput
+                      label="Division"
+                      name="division"
+                      value={values.division}
+                      onBlur={handleBlur}
+                      onChange={handleChange}
+                      error={touched.division && errors.division ? String(errors.division) : undefined}
+                    />
 
-            <FloatingInput
-              label="Department"
-              name="department"
-              value={values.department}
-              onChange={handleChange}
-            />
+                    {/* Department */}
+                    <FloatingInput
+                      label="Department"
+                      name="department"
+                      value={values.department}
+                      onBlur={handleBlur}
+                      onChange={handleChange}
+                      error={touched.department && errors.department ? String(errors.department) : undefined}
+                    />
 
-            <FloatingInput
-              label="Designation"
-              name="designation"
-              value={values.designation}
-              onChange={handleChange}
-            />
+                    {/* Designation */}
+                    <FloatingInput
+                      label="Designation"
+                      name="designation"
+                      value={values.designation}
+                      onBlur={handleBlur}
+                      onChange={handleChange}
+                      error={touched.designation && errors.designation ? String(errors.designation) : undefined}
+                    />
 
-            <FloatingInput
-              label="Employ Id"
-              name="reg_code"
-              value={values.reg_code}
-              onChange={handleChange}
-              error={touched.reg_code && errors.reg_code}
-            />
+                    {/* Employee ID */}
+                    <FloatingInput
+                      label="Employ Id"
+                      name="reg_code"
+                      value={values.reg_code}
+                      onBlur={handleBlur}
+                      onChange={handleChange}
+                      error={touched.reg_code && errors.reg_code ? String(errors.reg_code) : undefined}
+                    />
 
-            <FloatingSelect
-              label="Gender"
-              value={values.gender}
-              onValueChange={(v) => setFieldValue("gender", v)}
-              className="w-full"
-              error={touched.gender && errors.gender}
-            >
-              <SelectItem value="Male">Male</SelectItem>
-              <SelectItem value="Female">Female</SelectItem>
-            </FloatingSelect>
-          </div>
+                    {/* Select Gender */}
+                    <FloatingSelect
+                      label="Gender"
+                      value={values.gender}
+                      onValueChange={(v) => setFieldValue("gender", v)}
+                      onTouched={() => setFieldTouched("gender", true)}
+                      error={touched.gender && errors.gender ? String(errors.gender) : undefined}
+                    >
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                    </FloatingSelect>
+                  </div>
 
-          {/* Ticket Numbers Section */}
-          <div className="border-t pt-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <h3 className="text-sm font-bold flex items-center gap-2">
-                <Badge className="rounded-full h-6 w-6 p-0 flex items-center justify-center bg-primary/10">
-                  {values.tickets.length}
-                </Badge>
-                Ticket Numbers
-              </h3>
+                  {/* Ticket Numbers Section */}
+                  <div className="border-t pt-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                      <h3 className="text-sm font-bold flex items-center gap-2">
+                        <Badge className="rounded-full h-6 w-6 p-0 flex items-center justify-center bg-gray-500">
+                          {values.tickets.length}
+                        </Badge>
+                        Ticket Numbers
+                      </h3>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-xs border-dashed w-full sm:w-auto"
-                onClick={() =>
-                  setFieldValue("tickets", [...values.tickets, ""])
-                }
-              >
-                <Plus className="h-3 w-3 mr-1" /> Add Another
-              </Button>
-            </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs border-dashed w-full sm:w-auto"
+                        onClick={() =>
+                          setFieldValue("tickets", [...values.tickets, ""])
+                        }
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Add Another
+                      </Button>
+                    </div>
 
-            {/* Ticket Inputs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {values.tickets.map((ticket, i) => (
-                <div key={i} className="relative">
-                  <FloatingInput
-                    label={`#${i + 1}`}
-                    value={ticket}
-                    onChange={(e) => {
-                      const copy = [...values.tickets];
-                      copy[i] = e.target.value;
-                      setFieldValue("tickets", copy);
-                    }}
-                    error={
-                      touched.tickets?.[i] &&
-                      errors.tickets?.[i]
-                    }
-                  />
+                    {/* Ticket Inputs */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {values.tickets.map((ticket, i) => (
+                        <div key={i} className="relative">
+                          <FloatingInput
+                            label={`#${i + 1}`}
+                            value={ticket}
+                            onChange={(e) => {
+                              const copy = [...values.tickets];
+                              copy[i] = e.target.value;
+                              setFieldValue("tickets", copy);
+                            }}
+                            error={
+                              touched.tickets?.[i] &&
+                              errors.tickets?.[i]
+                            }
+                          />
 
-                  {values.tickets.length > 1 && (
+                          {values.tickets.length > 1 && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="absolute top-1 right-1 h-5 w-5 p-0"
+                              onClick={() =>
+                                setFieldValue(
+                                  "tickets",
+                                  values.tickets.filter((_, idx) => idx !== i)
+                                )
+                              }
+                            >
+                              ✕
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Ticket array error */}
+                    {typeof errors.tickets === "string" && (
+                      <p className="text-sm text-destructive mt-2">
+                        {errors.tickets}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-4 flex gap-3">
                     <Button
                       type="button"
-                      size="icon"
                       variant="ghost"
-                      className="absolute top-1 right-1 h-5 w-5 p-0"
-                      onClick={() =>
-                        setFieldValue(
-                          "tickets",
-                          values.tickets.filter((_, idx) => idx !== i)
-                        )
-                      }
+                      className="flex-1"
+                      onClick={() => setPage("search")}
                     >
-                      ✕
+                      Cancel
                     </Button>
-                  )}
-                </div>
-              ))}
-            </div>
 
-            {/* Ticket array error */}
-            {typeof errors.tickets === "string" && (
-              <p className="text-sm text-destructive mt-2">
-                {errors.tickets}
-              </p>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="pt-4 flex gap-3">
-            <Button
-              type="button"
-              variant="ghost"
-              className="flex-1"
-              onClick={() => setPage("search")}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              type="submit"
-              className="flex-[2] font-bold text-lg h-12"
-            >
-              Save
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </Form>
-  )}
-</Formik>
-
-        // <Formik initialValues={initialValues} onSubmit={handleAddOwner}>
-        //   {({ values, setFieldValue, handleChange }) => (
-        //     <Form>
-        //       <Card className="max-w-4xl mx-auto shadow-lg border-t-4 border-t-primary">
-        //         <CardHeader className="border-b bg-muted/30">
-        //           <CardTitle className="text-xl flex items-center gap-2">
-        //             <Plus className="h-5 w-5 text-primary" />
-        //             Registration Details
-        //           </CardTitle>
-        //         </CardHeader>
-
-        //         <CardContent className="pt-6 space-y-6">
-        //           {/* Main Form Grid */}
-        //           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        //             <FloatingInput label="Full Name" name="name" value={values.name} onChange={handleChange} />
-        //             <FloatingInput label="Company" name="company" value={values.company} onChange={handleChange} />
-        //             <FloatingInput label="Branch" name="branch" value={values.branch} onChange={handleChange} />
-        //             <FloatingInput label="Division" name="division" value={values.division} onChange={handleChange} />
-        //             <FloatingInput label="Department" name="department" value={values.department} onChange={handleChange} />
-        //             <FloatingInput label="Designation" name="designation" value={values.designation} onChange={handleChange} />
-        //             <FloatingInput label="Employ Id" name="reg_code" value={values.reg_code} onChange={handleChange} />
-
-        //             <FloatingSelect
-        //               label="Gender"
-        //               value={values.gender}
-        //               onValueChange={(v) => setFieldValue("gender", v)}
-        //               className="w-full"
-        //             >
-        //               <SelectItem value="Male">Male</SelectItem>
-        //               <SelectItem value="Female">Female</SelectItem>
-        //             </FloatingSelect>
-        //           </div>
-
-        //           {/* Ticket Numbers Section */}
-        //           <div className="border-t pt-4">
-        //             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        //               <h3 className="text-sm font-bold flex items-center gap-2">
-        //                 <Badge className="rounded-full h-6 w-6 p-0 flex items-center justify-center bg-primary/10">
-        //                   {values.tickets.length}
-        //                 </Badge>
-        //                 Ticket Numbers
-        //               </h3>
-
-        //               <Button
-        //                 type="button"
-        //                 variant="outline"
-        //                 size="sm"
-        //                 className="text-xs border-dashed w-full sm:w-auto"
-        //                 onClick={() => setFieldValue("tickets", [...values.tickets, ""])}
-        //               >
-        //                 <Plus className="h-3 w-3 mr-1" /> Add Another
-        //               </Button>
-        //             </div>
-
-        //             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        //               {values.tickets.map((t, i) => (
-        //                 <div key={i} className="relative">
-        //                   <FloatingInput
-        //                     label={`#${i + 1}`}
-        //                     value={t}
-        //                     onChange={(e) => {
-        //                       const copy = [...values.tickets];
-        //                       copy[i] = e.target.value;
-        //                       setFieldValue("tickets", copy);
-        //                     }}
-        //                   />
-
-        //                   {values.tickets.length > 1 && (
-        //                     <Button
-        //                       size="icon"
-        //                       variant="ghost"
-        //                       className="absolute top-1 right-1 h-5 w-5 p-0"
-        //                       onClick={() =>
-        //                         setFieldValue(
-        //                           "tickets",
-        //                           values.tickets.filter((_, idx) => idx !== i)
-        //                         )
-        //                       }
-        //                     >
-        //                       ✕
-        //                     </Button>
-        //                   )}
-        //                 </div>
-        //               ))}
-        //             </div>
-        //           </div>
-
-        //           {/* Actions */}
-        //           <div className="pt-4 flex gap-3">
-        //             <Button
-        //               type="button"
-        //               variant="ghost"
-        //               className="flex-1"
-        //               onClick={() => setPage("search")}
-        //             >
-        //               Cancel
-        //             </Button>
-
-        //             <Button type="submit" className="flex-[2] font-bold text-lg h-12">
-        //               Save
-        //             </Button>
-        //           </div>
-        //         </CardContent>
-        //       </Card>
-        //     </Form>
-        //   )}
-        // </Formik>
-
-
+                    <Button
+                      type="submit"
+                      className="flex-[2] font-bold text-lg h-12"
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </Form>
+          )}
+        </Formik>
       )}
 
       {/* ================= TABLE PAGE ================= */}
