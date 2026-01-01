@@ -18,6 +18,8 @@ import {
 import { RotateCcw } from 'lucide-react';
 import { TicketOwner } from '@/types/raffle';
 
+
+
 interface IndexProps {
   getOwnerByTicket: (ticketNumber: string) => TicketOwner | undefined;
   getAllTicketsFromOwners: () => string[];
@@ -46,6 +48,7 @@ const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
     resetAll,
     clearCurrentResults,
   } = useRaffleState();
+const raffleState = useRaffleState();
 
   return (
     <div className="bg-background p-6">
@@ -90,15 +93,15 @@ const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-[56%_42%]">
           {/* Top Row */}
           <DrawExecution
-            tickets={tickets}
-            categories={categories}
-            getAvailablePrizes={getAvailablePrizes}
-            isDrawing={isDrawing}
-            currentResults={currentResults}
-            onExecuteDraw={executeDraw}
-            onClearResults={clearCurrentResults}
-            getOwnerByTicket={getOwnerByTicket}
-          />
+  tickets={raffleState.tickets.map(t => t.ticket_number)}
+  categories={raffleState.categories}
+  getAvailablePrizes={raffleState.getAvailablePrizes}
+  isDrawing={raffleState.isDrawing}
+  currentResults={raffleState.currentResults}
+  onExecuteDraw={raffleState.executeDraw}
+  onClearResults={raffleState.clearCurrentResults}
+  getOwnerByTicket={getOwnerByTicket}
+/>
 
           <DrawHistory
             history={history}
@@ -108,12 +111,12 @@ const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
 
           {/* Bottom Row */}
           <TicketManagement
-            tickets={tickets}
-            onAddTickets={addTickets}
-            onAddRange={addTicketRange}
-            onClearTickets={clearTickets}
-            onImportFromOwners={getAllTicketsFromOwners}
-          />
+  tickets={raffleState.tickets.map(t => t.ticket_number)}
+  onAddTickets={raffleState.addTickets}
+  onAddRange={raffleState.addTicketRange}
+  onClearTickets={raffleState.clearTickets}
+  onImportFromOwners={getAllTicketsFromOwners}
+/>
 
           <PrizeManagement
             prizes={prizes}

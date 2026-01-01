@@ -22,7 +22,7 @@ const arrayToCsvFile = (prizes: Array<{ name: string; category: string }>): File
 
 
 export function useRaffleState() {
-  const [tickets, setTickets] = useState<string[]>([]);
+  const [tickets, setTickets] = useState<{ id: number; ticket_number: string }[]>([]);
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryMap, setCategoryMap] = useState<Map<string, number>>(new Map()); // name -> id
@@ -47,8 +47,16 @@ export function useRaffleState() {
       console.error('Failed to fetch categories:', err);
     }
   }, []);
+//fetch tickets from API
+  const fetchTickets = useCallback(async () => {
+  try {
+    const res = await getDrawTicket(); // GET /draw-tickets
+    setTickets(res.data.data || []);
+  } catch (err) {
+    console.error('Failed to fetch tickets:', err);
+  }
+}, []);
 
-  
 
   // Fetch prizes from API
   const fetchPrizes = useCallback(async () => {
@@ -94,6 +102,7 @@ export function useRaffleState() {
     setIsLoading(true);
     // We wait for categories to finish and update state
     await fetchCategories();
+    await fetchTickets(); 
     // We don't call fetchPrizes immediately because the categoryMap state 
     // update from fetchCategories hasn't "hit" the next render cycle yet.
     setIsLoading(false);
@@ -101,7 +110,7 @@ export function useRaffleState() {
 
   init();
   return () => { isMounted = false; };
-}, [fetchCategories]);
+}, [fetchCategories, fetchTickets]);
 
 // Add a second effect that reacts when the map is actually populated
 useEffect(() => {
@@ -111,29 +120,70 @@ useEffect(() => {
 }, [categoryMap, fetchPrizes]);
 
 
-  const addTickets = useCallback((newTickets: string[]) => {
-    setTickets(prev => {
-      const existingSet = new Set(prev);
-      const uniqueNew = newTickets.filter(t => !existingSet.has(t));
-      return [...prev, ...uniqueNew];
-    });
-  }, []);
-
-  const addTicketRange = useCallback((start: number, end: number) => {
-    const rangeTickets: string[] = [];
-    for (let i = start; i <= end; i++) {
-      rangeTickets.push(i.toString());
+  const addTickets = useCallback(async (newTickets: string[]) => {
+  for (const ticket of newTickets) {
+    try {
+      await apiDrawTicket({ ticket_number: ticket });
+    } catch (err) {
+      // Ignore duplicates (unique constraint)
+      console.warn('Ticket skipped:', ticket);
     }
-    addTickets(rangeTickets);
-  }, [addTickets]);
+  }
+  await fetchTickets(); // refresh from backend
+}, [fetchTickets]);
 
-  const removeTickets = useCallback((ticketsToRemove: string[]) => {
-    setTickets(prev => prev.filter(t => !ticketsToRemove.includes(t)));
-  }, []);
 
-  const clearTickets = useCallback(() => {
-    setTickets([]);
-  }, []);
+  const addTicketRange = useCallback(
+  async (start: number, end: number) => {
+    const tickets: string[] = [];
+    for (let i = start; i <= end; i++) {
+      tickets.push(i.toString());
+    }
+    await addTickets(tickets);
+  },
+  [addTickets]
+);
+
+const importTicketsCsv = useCallback(async (file: File) => {
+  try {
+    const formData = new FormData();
+    formData.append('csv', file);
+    await apiDrawTicketCSV(formData);
+    await fetchTickets(); // backend is source of truth
+  } catch (err) {
+    console.error('Failed to import tickets CSV:', err);
+  }
+}, [fetchTickets]);
+
+const removeTickets = useCallback(
+  async (ticketsToRemove: string[]) => {
+    const toDelete = tickets.filter(t =>
+      ticketsToRemove.includes(t.ticket_number)
+    );
+
+    for (const ticket of toDelete) {
+      try {
+        await apiDeleteDrawTicket(ticket.id);
+      } catch (err) {
+        console.error('Failed to delete ticket:', ticket.ticket_number);
+      }
+    }
+
+    await fetchTickets();
+  },
+  [tickets, fetchTickets]
+);
+
+
+const clearTickets = useCallback(async () => {
+  for (const ticket of tickets) {
+    try {
+      await apiDeleteDrawTicket(ticket.id);
+    } catch {}
+  }
+  await fetchTickets();
+}, [tickets, fetchTickets]);
+
 
   // Category management
   const addCategoryAsync = useCallback(async (name: string) => {
@@ -360,7 +410,8 @@ const deletePrize = useCallback((id: string): void => {
     return prizes.filter(p => p.category === category);
   }, [prizes]);
 
-  const executeDraw = useCallback(async (
+  const executeDraw = useCallback(
+  async (
     category: Category,
     groupSize: GroupSize,
     onAnimationTick?: (shuffledTickets: string[]) => void
@@ -383,13 +434,14 @@ const deletePrize = useCallback((id: string): void => {
       if (onAnimationTick) {
         const shuffled = [...tickets]
           .sort(() => Math.random() - 0.5)
-          .slice(0, groupSize);
+          .slice(0, groupSize)
+          .map(t => t.ticket_number); // ✅ map to string
         onAnimationTick(shuffled);
       }
     }
 
     // Actual random selection using crypto
-    const selectedTickets: string[] = [];
+    const selectedTickets: { id: number; ticket_number: string }[] = [];
     const ticketPool = [...tickets];
 
     for (let i = 0; i < groupSize; i++) {
@@ -421,15 +473,16 @@ const deletePrize = useCallback((id: string): void => {
 
       results.push({
         id: crypto.randomUUID(),
-        ticketNumber: ticket,
-        prize: { ...prize, isAssigned: true, assignedTo: ticket },
+        ticketNumber: ticket.ticket_number, // ✅ use ticket_number
+        prize: { ...prize, isAssigned: true, assignedTo: ticket.ticket_number },
         category,
         timestamp: new Date(),
       });
     }
 
     // Update local state
-    removeTickets(selectedTickets);
+   await removeTickets(selectedTickets.map(t => t.ticket_number));
+ // ✅ remove by ticket_number
     await fetchPrizes(); // Refresh prizes from server
 
     const historyEntry: DrawHistoryEntry = {
@@ -445,7 +498,10 @@ const deletePrize = useCallback((id: string): void => {
     setIsDrawing(false);
 
     return results;
-  }, [tickets, getAvailablePrizes, removeTickets, fetchPrizes]);
+  },
+  [tickets, getAvailablePrizes, removeTickets, fetchPrizes]
+);
+
 
   const resetAll = useCallback(() => {
     setTickets([]);
