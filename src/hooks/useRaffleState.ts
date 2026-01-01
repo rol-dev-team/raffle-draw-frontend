@@ -3,7 +3,9 @@ import { Prize, DrawResult, DrawHistoryEntry, Category, GroupSize, CategoryFromA
 import { getCategories, createCategory as apiCreateCategory, deleteCategory as apiDeleteCategory, importCategoriesCsv as apiCsvCategory } from './../services/categoryApi';
 import { getPrizes, createPrize as apiCreatePrize, updatePrize as apiUpdatePrize, deletePrize as apiDeletePrize, importPrizesCsv as apiImportPrizesCsv } from './../services/prizeApi';
 import { getDrawTicket, createDrawTicket as apiDrawTicket, updateDrawTicket as apiUpdateDrawTicket, deleteDrawTicket as apiDeleteDrawTicket, importDrawTicketsCsv as apiDrawTicketCSV }  from './../services/drawTicketApi';
+import { getDrawHistories } from '@/services/drawHistoryApi';
 
+import { createDrawHistory } from '@/services/drawHistoryApi';
 const arrayToCsvFile = (prizes: Array<{ name: string; category: string }>): File => {
   // Header must match backend: Category,Prize
   const csvRows = ['Category,Prize'];
@@ -91,26 +93,81 @@ export function useRaffleState() {
   }
 }, [categoryMap]);
 
+// Fetch draw history from backend
+const fetchHistory = useCallback(async () => {
+  try {
+    const res = await getDrawHistories();
+    const apiHistory = res.data.data || [];
+
+    const mappedHistory: DrawHistoryEntry[] = apiHistory
+      .map((entry: any) => {
+        // 🔴 Handle different backend shapes safely
+        const rawResults =
+          entry.results ??
+          entry.draw_results ??
+          entry.items ??
+          [];
+
+        if (!Array.isArray(rawResults) || rawResults.length === 0) {
+          return null;
+        }
+
+        const results: DrawResult[] = rawResults.map((r: any) => {
+  const category = r.category ?? entry.category;
+
+  return {
+    id: r.id ?? crypto.randomUUID(),
+    ticketNumber: r.ticketNumber ?? r.ticket_number,
+    prize: {
+      id: r.prize?.id ?? crypto.randomUUID(),
+      name: r.prize?.name ?? '',
+      category,               // ✅ REQUIRED
+      isAssigned: true,
+      assignedTo: r.prize?.assignedTo ?? r.ticketNumber,
+    },
+    category,
+    timestamp: new Date(r.timestamp ?? entry.created_at),
+  };
+});
+
+
+        return {
+          id: entry.id?.toString() ?? crypto.randomUUID(),
+          category: results[0].category,
+          groupSize: results.length,
+          timestamp: new Date(entry.created_at ?? entry.timestamp),
+          results,
+        };
+      })
+      .filter(Boolean) as DrawHistoryEntry[];
+
+    setHistory(mappedHistory.reverse());
+  } catch (err) {
+    console.error('Failed to fetch draw history:', err);
+  }
+}, []);
+
 
 
 
   // Initial fetch
  useEffect(() => {
-  let isMounted = true;
-
   const init = async () => {
     setIsLoading(true);
-    // We wait for categories to finish and update state
     await fetchCategories();
-    await fetchTickets(); 
-    // We don't call fetchPrizes immediately because the categoryMap state 
-    // update from fetchCategories hasn't "hit" the next render cycle yet.
+    await fetchTickets();
     setIsLoading(false);
   };
 
   init();
-  return () => { isMounted = false; };
 }, [fetchCategories, fetchTickets]);
+useEffect(() => {
+  if (categoryMap.size > 0) {
+    fetchPrizes();
+    fetchHistory();
+  }
+}, [categoryMap, fetchPrizes, fetchHistory]);
+
 
 // Add a second effect that reacts when the map is actually populated
 useEffect(() => {
@@ -133,57 +190,35 @@ useEffect(() => {
 }, [fetchTickets]);
 
 
-  const addTicketRange = useCallback(
-  async (start: number, end: number) => {
-    const tickets: string[] = [];
-    for (let i = start; i <= end; i++) {
-      tickets.push(i.toString());
-    }
-    await addTickets(tickets);
-  },
-  [addTickets]
-);
+  const addTicketRange = useCallback((start: number, end: number) => {
+  const rangeTickets = [];
+  for (let i = start; i <= end; i++) {
+    rangeTickets.push(i.toString());
+  }
+  addTickets(rangeTickets);
+}, [addTickets]);
 
+  const removeTickets = useCallback((ticketsToRemove: string[]) => {
+  setTickets(prev => prev.filter(t => !ticketsToRemove.includes(t.ticket_number)));
+}, []);
+
+  const clearTickets = useCallback(() => {
+  setTickets([]);
+}, []);
 const importTicketsCsv = useCallback(async (file: File) => {
   try {
     const formData = new FormData();
     formData.append('csv', file);
-    await apiDrawTicketCSV(formData);
-    await fetchTickets(); // backend is source of truth
+    const res = await apiDrawTicketCSV(formData); // POST /draw-tickets/import
+    const importedTickets = res.data.data.map((t: any) => ({
+      id: t.id,
+      ticket_number: t.ticket_number
+    }));
+    setTickets(prev => [...prev, ...importedTickets]);
   } catch (err) {
     console.error('Failed to import tickets CSV:', err);
   }
-}, [fetchTickets]);
-
-const removeTickets = useCallback(
-  async (ticketsToRemove: string[]) => {
-    const toDelete = tickets.filter(t =>
-      ticketsToRemove.includes(t.ticket_number)
-    );
-
-    for (const ticket of toDelete) {
-      try {
-        await apiDeleteDrawTicket(ticket.id);
-      } catch (err) {
-        console.error('Failed to delete ticket:', ticket.ticket_number);
-      }
-    }
-
-    await fetchTickets();
-  },
-  [tickets, fetchTickets]
-);
-
-
-const clearTickets = useCallback(async () => {
-  for (const ticket of tickets) {
-    try {
-      await apiDeleteDrawTicket(ticket.id);
-    } catch {}
-  }
-  await fetchTickets();
-}, [tickets, fetchTickets]);
-
+}, []);
 
   // Category management
   const addCategoryAsync = useCallback(async (name: string) => {
@@ -481,8 +516,7 @@ const deletePrize = useCallback((id: string): void => {
     }
 
     // Update local state
-   await removeTickets(selectedTickets.map(t => t.ticket_number));
- // ✅ remove by ticket_number
+    removeTickets(selectedTickets.map(t => t.ticket_number)); // ✅ remove by ticket_number
     await fetchPrizes(); // Refresh prizes from server
 
     const historyEntry: DrawHistoryEntry = {
@@ -495,6 +529,24 @@ const deletePrize = useCallback((id: string): void => {
 
     setCurrentResults(results);
     setHistory(prev => [historyEntry, ...prev]);
+
+    try {
+ for (const r of results) {
+  await createDrawHistory({
+    ticket_number: r.ticketNumber,
+    prize_id: r.prize.apiId!,       // numeric ID from DB
+    prize_name: r.prize.name,
+    category: r.category,
+    assigned_to: r.prize.assignedTo ?? r.ticketNumber,
+    draw_timestamp: r.timestamp.toISOString(),
+  });
+}
+
+} catch (err) {
+  console.error('Failed to save draw history to backend:', err);
+}
+
+
     setIsDrawing(false);
 
     return results;
@@ -511,6 +563,7 @@ const deletePrize = useCallback((id: string): void => {
     // Refetch from server
     fetchCategories();
     fetchPrizes();
+    fetchHistory(); 
   }, [fetchCategories, fetchPrizes]);
 
   const clearCurrentResults = useCallback(() => {

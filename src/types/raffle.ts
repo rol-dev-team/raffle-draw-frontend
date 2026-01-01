@@ -68,3 +68,25 @@ export interface EmployeeFromApi {
   name: string;
   email: string;
 }
+
+// 🔹 Backend payload (WRITE-ONLY)
+export interface DrawHistoryResultPayload {
+  ticket_number: string;
+  category: string;
+  timestamp: string;
+  prize: {
+    id: string;
+    name: string;
+    assigned_to: string;
+  };
+}
+
+// 🔹 Backend payload (WRITE-ONLY) – matches Laravel ResultHistory
+export interface CreateDrawHistoryPayload {
+  ticket_number: string;
+  prize_id: number;      // numeric DB ID
+  prize_name: string;
+  category: string;
+  assigned_to: string;
+  draw_timestamp: string;
+}

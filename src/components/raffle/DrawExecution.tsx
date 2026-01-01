@@ -155,10 +155,10 @@ export function DrawExecution({
               onValueChange={setSelectedPrizeId}
               className="w-full flex-shrink-0"
             >
-              {availablePrizes.map((prize) => (
-                <SelectItem key={prize.id} value={prize.id}>
-                  {prize.name}
-                </SelectItem>
+              {getAvailablePrizes(selectedCategory).map((prize) => (
+    <SelectItem key={prize.id} value={prize.id}>
+      {prize.name}
+    </SelectItem>
               ))}
             </FloatingSelect>
           </div>
@@ -214,6 +214,9 @@ export function DrawExecution({
                 <Trophy className="h-5 w-5 text-winner" /> Winners!
               </h3>
               <Button variant="ghost" size="sm" onClick={onClearResults}>Clear</Button>
+              <Button variant="destructive" size="sm" onClick={onClearResults}>
+  Reset Draw (Dev)
+</Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {currentResults.map((result, index) => {

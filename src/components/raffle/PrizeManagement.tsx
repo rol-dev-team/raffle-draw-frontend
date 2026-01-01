@@ -22,6 +22,7 @@ interface PrizeManagementProps {
   onAddCategory: (name: string) => boolean;
   onDeleteCategory: (name: string) => boolean;
   getPrizesByCategory: (category: Category) => Prize[];
+  getAvailablePrizes: (category: Category) => Prize[];
 }
 
 const CATEGORY_COLORS: Record<string, { bg: string; fg: string }> = {
@@ -38,7 +39,7 @@ const getColorForCategory = (category: string) => {
 
 export function PrizeManagement({
   prizes, categories, onAddPrize, onAddBulkPrizes, onUpdatePrize, onDeletePrize,
-  onAddCategory, onDeleteCategory, getPrizesByCategory,
+  onAddCategory, onDeleteCategory, getPrizesByCategory,getAvailablePrizes,
 }: PrizeManagementProps) {
   const [newPrizeName, setNewPrizeName] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<Category | undefined>(undefined);
@@ -187,7 +188,7 @@ export function PrizeManagement({
           {categories.map((cat) => (
             <TabsContent key={cat} value={cat} className="mt-2">
               <ScrollArea className="h-[250px] sm:h-[300px] md:h-[400px]">
-                <div className="space-y-2 pr-2">
+                {/* <div className="space-y-2 pr-2">
                   {getPrizesByCategory(cat).length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">No prizes</div>
                   ) : (
@@ -229,7 +230,50 @@ export function PrizeManagement({
                       </div>
                     ))
                   )}
-                </div>
+                </div> */}
+<div className="space-y-2 pr-2">
+  {getAvailablePrizes(cat).length === 0 ? (
+    <div className="text-center py-8 text-muted-foreground">No prizes</div>
+  ) : (
+    getAvailablePrizes(cat).map((prize) => (
+      <div
+        key={prize.id}
+        className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-lg border bg-card gap-2"
+      >
+        {editingId === prize.id ? (
+          <div className="flex flex-col sm:flex-row items-center gap-2 flex-1 w-full">
+            <FloatingInput
+              label="Prize name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="h-10 flex-1 min-w-0"
+            />
+            <Select value={editCategory} onValueChange={setEditCategory}>
+              <SelectTrigger className="w-28 h-8"><SelectValue /></SelectTrigger>
+              <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { onUpdatePrize(editingId, editName.trim(), editCategory); setEditingId(null); }}><Check className="h-4 w-4 text-green-500" /></Button>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingId(null)}><X className="h-4 w-4 text-destructive" /></Button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={`${getColorForCategory(cat).bg} ${getColorForCategory(cat).fg} border-0`}>{cat}</Badge>
+              <span>{prize.name}</span>
+            </div>
+            <div className="flex gap-1 mt-1 sm:mt-0">
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditingId(prize.id); setEditName(prize.name); setEditCategory(prize.category); }}><Edit2 className="h-4 w-4" /></Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => onDeletePrize(prize.id)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          </>
+        )}
+      </div>
+    ))
+  )}
+</div>
+
+
+
               </ScrollArea>
             </TabsContent>
           ))}
@@ -265,11 +309,11 @@ export function PrizeManagement({
                   return (
                     <Badge key={cat} className={`${colors.bg} ${colors.fg} border-0 pr-1`}>
                       {cat} ({count.total})
-                      {count.total === 0 && (
+                      {/* {count.total === 0 && ( */}
                         <Button size="icon" variant="ghost" className="h-4 w-4 ml-1" onClick={() => onDeleteCategory(cat)}>
                           <X className="h-3 w-3" />
                         </Button>
-                      )}
+                      {/* )} */}
                     </Badge>
                   );
                 })}

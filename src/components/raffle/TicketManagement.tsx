@@ -41,18 +41,6 @@ export function TicketManagement({
   const [rangeEnd, setRangeEnd] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Local storage persistence ---
-  useEffect(() => {
-    const storedTickets = localStorage.getItem('ticketPool');
-    if (storedTickets) {
-      const parsed: string[] = JSON.parse(storedTickets);
-      onAddTickets(parsed);
-    }
-  }, []);
-
-  const updateLocalStorage = (newTickets: string[]) => {
-    localStorage.setItem('ticketPool', JSON.stringify(newTickets));
-  };
 
   // --- Handlers ---
   const handleBulkAdd = () => {
@@ -73,7 +61,6 @@ export function TicketManagement({
     const unique = newTickets.filter(t => !existingSet.has(t));
 
     onAddTickets(unique);
-    updateLocalStorage([...tickets, ...unique]);
     setBulkInput('');
 
     toast({
@@ -106,7 +93,6 @@ export function TicketManagement({
     const unique = rangeTickets.filter(t => !existingSet.has(t));
 
     onAddRange(start, end);
-    updateLocalStorage([...tickets, ...unique]);
     setRangeStart('');
     setRangeEnd('');
 
@@ -130,7 +116,6 @@ export function TicketManagement({
         }
 
         onAddTickets(csvTickets);
-        updateLocalStorage([...tickets, ...csvTickets]);
         toast({ title: 'CSV imported', description: `Imported ${csvTickets.length} tickets` });
       },
       error: () => {
@@ -143,7 +128,6 @@ export function TicketManagement({
 
   const handleClearTickets = () => {
     onClearTickets();
-    localStorage.removeItem('ticketPool');
   };
 
   return (

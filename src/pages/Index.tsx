@@ -103,6 +103,7 @@ const raffleState = useRaffleState();
   getOwnerByTicket={getOwnerByTicket}
 />
 
+
           <DrawHistory
             history={history}
             onReset={resetAll}
@@ -128,6 +129,7 @@ const raffleState = useRaffleState();
             onAddCategory={addCategory}
             onDeleteCategory={deleteCategory}
             getPrizesByCategory={getPrizesByCategory}
+            getAvailablePrizes={getAvailablePrizes} //for removing strike
           />
         </div>
       </div>
