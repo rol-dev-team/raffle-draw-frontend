@@ -13,6 +13,7 @@ import {
 import { Sparkles, AlertCircle, Trophy, User } from 'lucide-react';
 import { Category, GroupSize, DrawResult, Prize, TicketOwner } from '@/types/raffle';
 import { cn } from '@/lib/utils';
+import { drawWithSuffle } from '@/service/employeeApi';
 
 interface DrawExecutionProps {
   tickets: string[];
@@ -58,54 +59,122 @@ export function DrawExecution({
   const [selectedGroupSize, setSelectedGroupSize] = useState<GroupSize>(null);
   const [animatingTickets, setAnimatingTickets] = useState<string[]>([]);
   const [selectedPrizeId, setSelectedPrizeId] = useState<string | null>(null);
+  const [results, setResults] = useState([]);
+  const [isloading, setIsloading] = useState(false);
 
   const availablePrizes = getAvailablePrizes(selectedCategory);
-  const canDraw = tickets.length >= selectedGroupSize && availablePrizes.length >= selectedGroupSize;
-
+  const canDraw =
+    tickets.length >= selectedGroupSize && availablePrizes.length >= selectedGroupSize;
+  console.log('categories:', categories);
   useEffect(() => {
     setSelectedPrizeId(null);
   }, [selectedCategory, selectedGroupSize]);
 
   const getDisabledReason = () => {
-    if (tickets.length < selectedGroupSize) return `Need ${selectedGroupSize - tickets.length} more tickets`;
+    if (tickets.length < selectedGroupSize)
+      return `Need ${selectedGroupSize - tickets.length} more tickets`;
     if (availablePrizes.length < selectedGroupSize)
-      return `Need ${selectedGroupSize - availablePrizes.length} more prizes in Category ${selectedCategory}`;
+      return `Need ${
+        selectedGroupSize - availablePrizes.length
+      } more prizes in Category ${selectedCategory}`;
     return null;
+  };
+
+  const disabledReason = getDisabledReason();
+
+  const generateRandomTickets = (count: number): string[] => {
+    return Array.from({ length: count }, () =>
+      Math.floor(Math.random() * 10000)
+        .toString()
+        .padStart(4, '0')
+    );
   };
 
   const handleDraw = async () => {
     if (!canDraw || isDrawing) return;
 
-    onClearResults();
+    // onClearResults();
     setAnimatingTickets([]);
+    setIsloading(true);
 
-    const results = await onExecuteDraw(
-      selectedCategory,
-      selectedGroupSize,
-      (shuffled) => setAnimatingTickets(shuffled),
-      selectedPrizeId
-    );
+    // Start shuffle animation immediately
+    const animationDuration = 10000; // 20 seconds in milliseconds
+    const shuffleInterval = 100; // Update every 100ms for smooth animation
+    const startTime = Date.now();
 
-    if (selectedGroupSize === 1 && selectedPrizeId && results.length === 1) {
-      const prize = availablePrizes.find(p => p.id === selectedPrizeId);
-      if (prize) results[0].prize = prize;
+    const shuffleAnimationInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+
+      if (elapsed < animationDuration) {
+        // Generate random tickets for the current frame
+        const randomTickets = generateRandomTickets(selectedGroupSize);
+        setAnimatingTickets(randomTickets);
+      } else {
+        // Animation complete - clear interval
+        clearInterval(shuffleAnimationInterval);
+      }
+    }, shuffleInterval);
+
+    try {
+      console.log('Starting draw with:', {
+        category: selectedCategory,
+        groupSize: selectedGroupSize,
+        prizeId: selectedPrizeId,
+      });
+      const payload = {
+        category: selectedCategory,
+        groupSize: selectedGroupSize,
+        prizeId: selectedPrizeId,
+      };
+      const response = await drawWithSuffle(payload);
+      const flatResults = response.data.flat();
+      console.log('Draw results:', flatResults);
+
+      // Wait for shuffle animation to complete
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, animationDuration - elapsedTime);
+
+      setTimeout(() => {
+        clearInterval(shuffleAnimationInterval);
+        setResults(flatResults);
+        setAnimatingTickets(flatResults.map((r) => r.ticket_number));
+        setIsloading(false);
+      }, remainingTime);
+    } catch (error) {
+      clearInterval(shuffleAnimationInterval);
+      setIsloading(false);
+      console.error(error);
+      alert(error?.response?.data?.error || 'Draw failed');
     }
-
-    console.log('Draw Results:', results);
-    setAnimatingTickets([]);
   };
 
-  const disabledReason = getDisabledReason();
-
+  console.log('currentResults:', results);
+  console.log('animatingTickets:', animatingTickets);
+  const handleClearResults = () => {
+    setResults([]);
+    onClearResults();
+  };
   return (
-    <Card className="h-full">
+    // <Card className={cn('h-full', isDrawing && 'pointer-events-none opacity-50 blur-sm')}>
+    <Card
+      className={cn(
+        'relative h-full transition-all duration-200',
+        isDrawing && 'pointer-events-none opacity-60 blur-[1px]'
+      )}
+    >
+      {isDrawing && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/40 backdrop-blur-[1px]">
+          <span className="text-3xl font-medium text-muted-foreground animate-pulse">
+            Resetting…
+          </span>
+        </div>
+      )}
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Sparkles className="h-5 w-5 text-primary" /> Draw Execution
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-
         {/* Configuration */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Category Select */}
@@ -141,7 +210,6 @@ export function DrawExecution({
                 </SelectItem>
               ))}
             </FloatingSelect>
-
           </div>
         </div>
 
@@ -174,7 +242,7 @@ export function DrawExecution({
               canDraw && !isDrawing ? 'bg-primary hover:bg-primary/90 hover:scale-[1.02]' : ''
             )}
           >
-            {isDrawing ? (
+            {isloading ? (
               <span className="flex items-center gap-2 animate-spin-slow">🎰 Drawing...</span>
             ) : (
               <span className="flex items-center gap-2">
@@ -191,7 +259,7 @@ export function DrawExecution({
         </div>
 
         {/* Animating Tickets */}
-        {isDrawing && animatingTickets.length > 0 && (
+        {isloading && animatingTickets.length > 0 && (
           <div className="p-4 rounded-lg bg-muted/50 border-2 border-dashed border-primary/30 overflow-x-auto">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
               {animatingTickets.map((ticket, i) => (
@@ -207,41 +275,40 @@ export function DrawExecution({
         )}
 
         {/* Current Results */}
-        {!isDrawing && currentResults.length > 0 && (
+        {!isDrawing && results.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="font-semibold text-lg flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-winner" /> Winners!
               </h3>
-              <Button variant="ghost" size="sm" onClick={onClearResults}>Clear</Button>
+              <Button variant="outline" size="sm" onClick={handleClearResults}>
+                Draw Again
+              </Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {currentResults.map((result, index) => {
-                const owner = getOwnerByTicket(result.ticketNumber);
+              {results.map((item, index) => {
                 return (
                   <div
-                    key={result.id}
+                    key={item.id}
                     className="winner-card p-4 rounded-xl bg-gradient-to-r from-winner/10 to-winner/5 border-2 border-winner/30 animate-scale-in"
                     style={{ animationDelay: `${index * 150}ms` }}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
                         <div className="text-3xl font-bold font-mono text-foreground">
-                          #{result.ticketNumber}
+                          #{item.ticket_number}
                         </div>
-                        {owner && (
+                        {/* {owner && (
                           <div className="flex items-center gap-1 text-sm text-primary mt-1">
                             <User className="h-4 w-4" />
                             <span className="font-medium">{owner.name}</span>
                           </div>
-                        )}
+                        )} */}
                         <div className="text-lg font-medium text-muted-foreground mt-1">
-                          {result.prize.name}
+                          {item.prize}
                         </div>
                       </div>
-                      <Badge className={cn('text-sm', getCategoryColor(result.category))}>
-                        Category {result.category}
-                      </Badge>
+                      <Badge>Category {item.category}</Badge>
                     </div>
                   </div>
                 );

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { RotateCcw } from 'lucide-react';
 import { TicketOwner } from '@/types/raffle';
+import { useState, useEffect } from 'react';
 
 interface IndexProps {
   getOwnerByTicket: (ticketNumber: string) => TicketOwner | undefined;
@@ -25,6 +26,7 @@ interface IndexProps {
 
 const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
   const {
+    allCategories,
     tickets,
     prizes,
     categories,
@@ -45,7 +47,27 @@ const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
     executeDraw,
     resetAll,
     clearCurrentResults,
+    refetchCategories,
+    refetchPrizes,
+    refetchTickets,
   } = useRaffleState();
+  const [drawKey, setDrawKey] = useState(0);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleClearAndReload = async () => {
+    setIsResetting(true); // 🔒 UI lock
+
+    try {
+      await Promise.all([refetchCategories(), refetchPrizes(), refetchTickets()]);
+
+      setDrawKey((prev) => prev + 1);
+    } finally {
+      // একটু delay দিলে UI smooth হয়
+      setTimeout(() => {
+        setIsResetting(false); // 🔓 UI unlock
+      }, 300);
+    }
+  };
 
   return (
     <div className="bg-background p-6">
@@ -53,18 +75,16 @@ const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Raffle Draw</h1>
-          <p className="text-sm text-muted-foreground">
-            Fair • Transparent • Exciting
-          </p>
+          <p className="text-sm text-muted-foreground">Fair • Transparent • Exciting</p>
         </div>
 
         <AlertDialog>
-          <AlertDialogTrigger asChild>
+          {/* <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm">
               <RotateCcw className="mr-2 h-4 w-4" />
               Reset All
             </Button>
-          </AlertDialogTrigger>
+          </AlertDialogTrigger> */}
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Reset Everything?</AlertDialogTitle>
@@ -90,17 +110,19 @@ const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-[56%_42%]">
           {/* Top Row */}
           <DrawExecution
+            key={drawKey}
             tickets={tickets}
             categories={categories}
             getAvailablePrizes={getAvailablePrizes}
-            isDrawing={isDrawing}
+            isDrawing={isDrawing || isResetting}
             currentResults={currentResults}
             onExecuteDraw={executeDraw}
-            onClearResults={clearCurrentResults}
+            onClearResults={handleClearAndReload}
             getOwnerByTicket={getOwnerByTicket}
           />
 
           <DrawHistory
+            refetchResults={isResetting}
             history={history}
             onReset={resetAll}
             getOwnerByTicket={getOwnerByTicket}
@@ -109,9 +131,9 @@ const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
           {/* Bottom Row */}
           <TicketManagement
             tickets={tickets}
-            onAddTickets={addTickets}
-            onAddRange={addTicketRange}
-            onClearTickets={clearTickets}
+            // onAddTickets={addTickets}
+            // onAddRange={addTicketRange}
+            // onClearTickets={clearTickets}
             onImportFromOwners={getAllTicketsFromOwners}
           />
 
@@ -133,4 +155,3 @@ const Index = ({ getOwnerByTicket, getAllTicketsFromOwners }: IndexProps) => {
 };
 
 export default Index;
-

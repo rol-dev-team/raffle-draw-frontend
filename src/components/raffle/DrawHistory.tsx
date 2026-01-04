@@ -6,9 +6,11 @@ import { Separator } from '@/components/ui/separator';
 import { History, Download, FileText, Clock, Trash2, User } from 'lucide-react';
 import { DrawHistoryEntry, Category, TicketOwner } from '@/types/raffle';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useEffect, useState } from 'react';
+import { drawResults } from '@/service/employeeApi';
 
 interface DrawHistoryProps {
   history: DrawHistoryEntry[];
@@ -30,27 +32,32 @@ const getCategoryColor = (category: string) => {
   return `bg-[hsl(${hue},70%,50%)] text-white`;
 };
 
-export function DrawHistory({ history, onReset, getOwnerByTicket }: DrawHistoryProps) {
+export function DrawHistory({
+  history,
+  onReset,
+  getOwnerByTicket,
+  refetchResults,
+}: DrawHistoryProps) {
+  const [drawResult, setDrawResult] = useState([]);
   const exportToCSV = () => {
-    if (history.length === 0) return;
+    const source = drawResult.length ? drawResult : history;
+    if (!source || source.length === 0) return;
 
-    const rows = [['Draw #', 'Timestamp', 'Category', 'Ticket Number', 'Owner Name', 'Prize Name']];
-    
-    history.forEach((entry, drawIndex) => {
-      entry.results.forEach((result) => {
-        const owner = getOwnerByTicket(result.ticketNumber);
-        rows.push([
-          (history.length - drawIndex).toString(),
-          format(entry.timestamp, 'yyyy-MM-dd HH:mm:ss'),
-          result.category,
-          result.ticketNumber,
-          owner?.name || '-',
-          result.prize.name,
-        ]);
-      });
+    const rows = [['Ticket Number', 'Prize', 'Category', 'Draw Size', 'Draw Date & Time']];
+
+    source.forEach((entry: any) => {
+      const created = entry.created_at || entry.timestamp || entry.createdAt;
+      const parsed = created ? new Date(created.replace(' ', 'T') + 'Z') : new Date();
+      rows.push([
+        entry.ticket_number || entry.ticketNumber || entry.ticket,
+        entry.prize || (entry.prize && entry.prize.name) || '-',
+        entry.category || '-',
+        entry.draw_size || entry.drawSize || '-',
+        format(parsed, 'dd MMM yyyy, h:mm a'),
+      ]);
     });
 
-    const csvContent = rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const csvContent = rows.map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -61,139 +68,177 @@ export function DrawHistory({ history, onReset, getOwnerByTicket }: DrawHistoryP
   };
 
   const exportToPDF = () => {
-    if (history.length === 0) return;
+    const source = drawResult.length ? drawResult : history;
+    if (!source || source.length === 0) return;
 
-    const doc = new jsPDF();
-    
-    doc.setFontSize(20);
-    doc.text('Raffle Draw Results', 14, 22);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Generated: ${format(new Date(), 'MMMM d, yyyy h:mm a')}`, 14, 30);
+    const doc = new jsPDF('p', 'pt');
+    const marginLeft = 40;
+    const startY = 70;
 
-    const tableData = history.flatMap((entry, drawIndex) =>
-      entry.results.map((result) => {
-        const owner = getOwnerByTicket(result.ticketNumber);
-        return [
-          history.length - drawIndex,
-          format(entry.timestamp, 'MMM d, HH:mm'),
-          `Category ${result.category}`,
-          result.ticketNumber,
-          owner?.name || '-',
-          result.prize.name,
-        ];
-      })
-    );
+    doc.setFontSize(18);
+    doc.text('Raffle Draw Results', marginLeft, 40);
+
+    // Optional date range
+    const dates = source
+      .map((e: any) =>
+        e.created_at ? parse(e.created_at, 'yyyy-MM-dd HH:mm:ss', new Date()) : new Date()
+      )
+      .sort((a: Date, b: Date) => +a - +b);
+    if (dates.length) {
+      const rangeText = `${format(dates[0], 'dd MMM yyyy')} - ${format(
+        dates[dates.length - 1],
+        'dd MMM yyyy'
+      )}`;
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      // doc.text(`Date Range: ${rangeText}`, marginLeft, 54);
+      doc.text(`Generated: ${format(new Date(), 'dd MMM yyyy, h:mm a')}`, marginLeft, 66);
+    }
+
+    const tableData = source.map((entry: any) => {
+      const created = entry.created_at || entry.timestamp || entry.createdAt;
+      const parsed = created ? new Date(created.replace(' ', 'T') + 'Z') : new Date();
+      return [
+        entry.ticket_number || entry.ticketNumber || entry.ticket,
+        entry.prize || (entry.prize && entry.prize.name) || '-',
+        entry.category || '-',
+        entry.draw_size || entry.drawSize || '-',
+        format(parsed, 'dd MMM yyyy, h:mm a'),
+      ];
+    });
 
     autoTable(doc, {
-      head: [['Draw #', 'Time', 'Category', 'Ticket', 'Owner', 'Prize']],
+      head: [['Ticket Number', 'Prize', 'Category', 'Draw Size', 'Draw Date & Time']],
       body: tableData,
-      startY: 38,
-      styles: { fontSize: 9 },
+      startY,
+      styles: { fontSize: 10 },
       headStyles: { fillColor: [59, 130, 246] },
       alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: marginLeft, right: marginLeft },
+      didDrawPage: (data) => {
+        // footer handled after table generation
+      },
     });
+
+    // Add page numbers / footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(9);
+      doc.setTextColor(120);
+      const pageStr = `Page ${i} of ${pageCount}`;
+      doc.text(
+        pageStr,
+        doc.internal.pageSize.getWidth() - marginLeft,
+        doc.internal.pageSize.getHeight() - 30,
+        { align: 'right' }
+      );
+      doc.text('Generated by Raffle System', marginLeft, doc.internal.pageSize.getHeight() - 30);
+    }
 
     doc.save(`raffle-results-${format(new Date(), 'yyyy-MM-dd-HHmmss')}.pdf`);
   };
 
   const totalWinners = history.reduce((acc, entry) => acc + entry.results.length, 0);
 
+  const getDrawResults = async () => {
+    try {
+      const res = await drawResults();
+      setDrawResult(res.data);
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+    }
+  };
+
+  useEffect(() => {
+    getDrawResults();
+  }, [refetchResults]);
+
+  console.log('drawResult:', drawResult);
   return (
     <Card className="h-full">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <History className="h-5 w-5 text-primary" />
-          Draw History
-          <Badge variant="secondary" className="ml-auto">
-            {totalWinners} winners
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Export Buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportToCSV}
-            disabled={history.length === 0}
-            className="flex-1"
-          >
-            <Download className="h-4 w-4 mr-1" />
-            CSV
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportToPDF}
-            disabled={history.length === 0}
-            className="flex-1"
-          >
-            <FileText className="h-4 w-4 mr-1" />
-            PDF
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onReset}
-            disabled={history.length === 0}
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+        <div className="flex items-center w-full gap-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <History className="h-5 w-5 text-primary" />
+            Draw History
+          </CardTitle>
 
-        {/* History List */}
+          <div className="ml-auto flex items-center gap-2">
+            <Badge variant="secondary" className="inline-flex">
+              {drawResult.length || 0} winners
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToPDF}
+              disabled={drawResult.length === 0 && history.length === 0}
+            >
+              <FileText className="h-4 w-4 mr-1" />
+              PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToCSV}
+              disabled={drawResult.length === 0 && history.length === 0}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              CSV
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
         <ScrollArea className="h-[400px]">
-          {history.length === 0 ? (
+          {drawResult.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
               <History className="h-12 w-12 mb-3 opacity-30" />
               <p className="text-sm">No draws yet</p>
               <p className="text-xs text-muted-foreground/70">Results will appear here</p>
             </div>
           ) : (
-            <div className="space-y-4 pr-4">
-              {history.map((entry, index) => (
-                <div key={entry.id} className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>{format(entry.timestamp, 'MMM d, yyyy h:mm a')}</span>
-                    <Badge className={cn('text-xs', getCategoryColor(entry.category))}>
-                      Cat {entry.category}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {entry.groupSize} drawn
-                    </Badge>
-                  </div>
-                  <div className="space-y-1.5">
-                    {entry.results.map((result) => {
-                      const owner = getOwnerByTicket(result.ticketNumber);
-                      return (
-                        <div
-                          key={result.id}
-                          className="flex items-center justify-between p-2 bg-muted/30 rounded-lg"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold">#{result.ticketNumber}</span>
-                            {owner && (
-                              <span className="flex items-center gap-1 text-xs text-primary">
-                                <User className="h-3 w-3" />
-                                {owner.name}
-                              </span>
+            <div className="overflow-auto">
+              <table className="min-w-full divide-y divide-muted rounded-lg bg-card">
+                <thead className="bg-muted/50">
+                  <tr className="sr-only">
+                    <th>Ticket Number</th>
+                    <th>Prize</th>
+                    <th>Category</th>
+                    {/* <th>Draw Size</th> */}
+                    <th>Draw Date & Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-muted/30">
+                  {drawResult.map((entry: any, idx: number) => {
+                    const created = entry.created_at || entry.timestamp || entry.createdAt;
+                    const parsed = created ? new Date(created.replace(' ', 'T') + 'Z') : new Date();
+                    return (
+                      <tr key={`${entry.ticket_number}-${idx}`} className="bg-card">
+                        <td className="px-4 py-3 align-middle font-mono font-bold">
+                          #{entry.ticket_number}
+                        </td>
+                        <td className="px-4 py-3 align-middle text-sm">{entry.prize}</td>
+                        <td className="px-4 py-3 align-middle">
+                          <span
+                            className={cn(
+                              'inline-flex items-center px-2 py-1 rounded-md text-xs font-medium',
+                              getCategoryColor(entry.category)
                             )}
-                          </div>
-                          <span className="text-sm text-muted-foreground truncate max-w-[40%]">
-                            {result.prize.name}
+                          >
+                            {entry.category}
                           </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {index < history.length - 1 && <Separator className="my-3" />}
-                </div>
-              ))}
+                        </td>
+                        {/* <td className="px-4 py-3 align-middle text-sm">{entry.draw_size}</td> */}
+                        <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
+                          {format(parsed, 'dd MMM yyyy, h:mm a')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </ScrollArea>

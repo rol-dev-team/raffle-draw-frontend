@@ -1,4 +1,4 @@
-import { apiClient } from "./apiConfig";
+import { apiClient } from './apiConfig';
 
 /**
  * Get all employees
@@ -6,7 +6,7 @@ import { apiClient } from "./apiConfig";
  */
 export const getEmployees = async () => {
   try {
-    const response = await apiClient.get("/employees");
+    const response = await apiClient.get('/employees');
     return response.data;
   } catch (error) {
     throw error;
@@ -19,7 +19,7 @@ export const getEmployees = async () => {
  */
 export const storeEmployee = async (data) => {
   try {
-    const response = await apiClient.post("/employees", data);
+    const response = await apiClient.post('/employees', data);
     return response.data;
   } catch (error) {
     throw error;
@@ -52,6 +52,14 @@ export const updateEmployee = async (id, data) => {
   }
 };
 
+export const getEmployeeByTicket = async (id) => {
+  try {
+    const response = await apiClient.get(`/employees/search-by-ticket/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
 /**
  * Delete employee
  * DELETE /employees/{id}
@@ -71,11 +79,69 @@ export const deleteEmployee = async (id) => {
  */
 export const importEmployeesCsv = async (data) => {
   try {
-    const response = await apiClient.post("/employees/import-csv", data, {
+    const response = await apiClient.post('/employees/import-csv', data, {
       headers: {
-        "Content-Type": "multipart/form-data",
+        'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const importBulkTicketsCsv = async (data) => {
+  try {
+    const response = await apiClient.post('/draw-tickets/import-csv', data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const storeSingleTicket = async (data) => {
+  try {
+    const response = await apiClient.post('/draw-tickets', data);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getAllTickets = async (data) => {
+  try {
+    const response = await apiClient.get('/draw-tickets');
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const deleteAllTickets = async () => {
+  try {
+    const response = await apiClient.delete('/draw-tickets/delete');
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const drawWithSuffle = async (data) => {
+  try {
+    const response = await apiClient.post('/draw-with-suffle', data);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const drawResults = async () => {
+  try {
+    const response = await apiClient.get('/draw-results');
     return response.data;
   } catch (error) {
     throw error;

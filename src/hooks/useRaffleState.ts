@@ -1,524 +1,528 @@
-// import { useState, useCallback } from 'react';
-// import { Prize, DrawResult, DrawHistoryEntry, Category, GroupSize } from '@/types/raffle';
-
-// const DEFAULT_CATEGORIES: Category[] = ['A', 'B', 'C'];
-
-// export function useRaffleState() {
-//   const [tickets, setTickets] = useState<string[]>([]);
-//   const [prizes, setPrizes] = useState<Prize[]>([]);
-//   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
-//   const [currentResults, setCurrentResults] = useState<DrawResult[]>([]);
-//   const [history, setHistory] = useState<DrawHistoryEntry[]>([]);
-//   const [isDrawing, setIsDrawing] = useState(false);
-
-//   const addTickets = useCallback((newTickets: string[]) => {
-//     setTickets(prev => {
-//       const existingSet = new Set(prev);
-//       const uniqueNew = newTickets.filter(t => !existingSet.has(t));
-//       return [...prev, ...uniqueNew];
-//     });
-//   }, []);
-
-//   const addTicketRange = useCallback((start: number, end: number) => {
-//     const rangeTickets: string[] = [];
-//     for (let i = start; i <= end; i++) {
-//       rangeTickets.push(i.toString());
-//     }
-//     addTickets(rangeTickets);
-//   }, [addTickets]);
-
-//   const removeTickets = useCallback((ticketsToRemove: string[]) => {
-//     setTickets(prev => prev.filter(t => !ticketsToRemove.includes(t)));
-//   }, []);
-
-//   const clearTickets = useCallback(() => {
-//     setTickets([]);
-//   }, []);
-
-//   // Category management
-//   const addCategory = useCallback((name: string) => {
-//     const trimmed = name.trim().toUpperCase();
-//     if (trimmed && !categories.includes(trimmed)) {
-//       setCategories(prev => [...prev, trimmed]);
-//       return true;
-//     }
-//     return false;
-//   }, [categories]);
-
-//   const deleteCategory = useCallback((name: string) => {
-//     // Only allow deletion if no prizes exist in this category
-//     const hasPrizes = prizes.some(p => p.category === name);
-//     if (!hasPrizes) {
-//       setCategories(prev => prev.filter(c => c !== name));
-//       return true;
-//     }
-//     return false;
-//   }, [prizes]);
-
-//   const addPrize = useCallback((name: string, category: Category) => {
-//     const newPrize: Prize = {
-//       id: crypto.randomUUID(),
-//       name,
-//       category,
-//       isAssigned: false,
-//     };
-//     setPrizes(prev => [...prev, newPrize]);
-//   }, []);
-
-//   const addBulkPrizes = useCallback((prizesData: Array<{ name: string; category: Category }>) => {
-//     const newPrizes: Prize[] = prizesData.map(p => ({
-//       id: crypto.randomUUID(),
-//       name: p.name,
-//       category: p.category,
-//       isAssigned: false,
-//     }));
-//     setPrizes(prev => [...prev, ...newPrizes]);
-//     return newPrizes.length;
-//   }, []);
-
-//   const updatePrize = useCallback((id: string, name: string, category: Category) => {
-//     setPrizes(prev => prev.map(p => 
-//       p.id === id ? { ...p, name, category } : p
-//     ));
-//   }, []);
-
-//   const deletePrize = useCallback((id: string) => {
-//     setPrizes(prev => prev.filter(p => p.id !== id));
-//   }, []);
-
-//   const getAvailablePrizes = useCallback((category: Category) => {
-//     return prizes.filter(p => p.category === category && !p.isAssigned);
-//   }, [prizes]);
-
-//   const getPrizesByCategory = useCallback((category: Category) => {
-//     return prizes.filter(p => p.category === category);
-//   }, [prizes]);
-
-//   const executeDraw = useCallback(async (
-//     category: Category,
-//     groupSize: GroupSize,
-//     onAnimationTick?: (shuffledTickets: string[]) => void
-//   ): Promise<DrawResult[]> => {
-//     const availablePrizes = getAvailablePrizes(category);
-    
-//     if (tickets.length < groupSize || availablePrizes.length < groupSize) {
-//       return [];
-//     }
-
-//     setIsDrawing(true);
-
-//     // Animation phase - shuffle display for 2.5 seconds
-//     const animationDuration = 2500;
-//     const tickInterval = 80;
-//     const ticks = animationDuration / tickInterval;
-
-//     for (let i = 0; i < ticks; i++) {
-//       await new Promise(resolve => setTimeout(resolve, tickInterval));
-//       if (onAnimationTick) {
-//         // Generate random tickets for display during animation
-//         const shuffled = [...tickets]
-//           .sort(() => Math.random() - 0.5)
-//           .slice(0, groupSize);
-//         onAnimationTick(shuffled);
-//       }
-//     }
-
-//     // Actual random selection using crypto
-//     const selectedTickets: string[] = [];
-//     const ticketPool = [...tickets];
-    
-//     for (let i = 0; i < groupSize; i++) {
-//       const randomArray = new Uint32Array(1);
-//       crypto.getRandomValues(randomArray);
-//       const randomIndex = randomArray[0] % ticketPool.length;
-//       selectedTickets.push(ticketPool[randomIndex]);
-//       ticketPool.splice(randomIndex, 1);
-//     }
-
-//     // Assign prizes
-//     const results: DrawResult[] = selectedTickets.map((ticket, index) => {
-//       const prize = availablePrizes[index];
-//       return {
-//         id: crypto.randomUUID(),
-//         ticketNumber: ticket,
-//         prize: { ...prize, isAssigned: true, assignedTo: ticket },
-//         category,
-//         timestamp: new Date(),
-//       };
-//     });
-
-//     // Update state
-//     removeTickets(selectedTickets);
-//     setPrizes(prev => prev.map(p => {
-//       const assigned = results.find(r => r.prize.id === p.id);
-//       if (assigned) {
-//         return { ...p, isAssigned: true, assignedTo: assigned.ticketNumber };
-//       }
-//       return p;
-//     }));
-
-//     const historyEntry: DrawHistoryEntry = {
-//       id: crypto.randomUUID(),
-//       results,
-//       category,
-//       groupSize,
-//       timestamp: new Date(),
-//     };
-
-//     setCurrentResults(results);
-//     setHistory(prev => [historyEntry, ...prev]);
-//     setIsDrawing(false);
-
-//     return results;
-//   }, [tickets, getAvailablePrizes, removeTickets]);
-
-//   const resetAll = useCallback(() => {
-//     setTickets([]);
-//     setPrizes([]);
-//     setCategories([...DEFAULT_CATEGORIES]);
-//     setCurrentResults([]);
-//     setHistory([]);
-//     setIsDrawing(false);
-//   }, []);
-
-//   const clearCurrentResults = useCallback(() => {
-//     setCurrentResults([]);
-//   }, []);
-
-//   return {
-//     tickets,
-//     prizes,
-//     categories,
-//     currentResults,
-//     history,
-//     isDrawing,
-//     addTickets,
-//     addTicketRange,
-//     removeTickets,
-//     clearTickets,
-//     addCategory,
-//     deleteCategory,
-//     addPrize,
-//     addBulkPrizes,
-//     updatePrize,
-//     deletePrize,
-//     getAvailablePrizes,
-//     getPrizesByCategory,
-//     executeDraw,
-//     resetAll,
-//     clearCurrentResults,
-//   };
-// }
-
-
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Prize,
   DrawResult,
   DrawHistoryEntry,
   Category,
   GroupSize,
-  TicketOwner,
+  CategoryFromApi,
+  PrizeFromApi,
 } from '@/types/raffle';
+import {
+  getCategories,
+  createCategory as apiCreateCategory,
+  deleteCategory as apiDeleteCategory,
+  importCategoriesCsv as apiCsvCategory,
+} from '@/service/categoryApi';
+import {
+  getPrizes,
+  createPrize as apiCreatePrize,
+  updatePrize as apiUpdatePrize,
+  deletePrize as apiDeletePrize,
+  importPrizesCsv as apiImportPrizesCsv,
+} from '@/service/prizeApi';
+import {
+  getDrawTicket,
+  createDrawTicket as apiDrawTicket,
+  updateDrawTicket as apiUpdateDrawTicket,
+  deleteDrawTicket as apiDeleteDrawTicket,
+  importDrawTicketsCsv as apiDrawTicketCSV,
+} from '@/service/drawTicketApi';
+import { getAllTickets } from '@/service/employeeApi';
+import { v4 as uuidv4 } from 'uuid';
 
-const DEFAULT_CATEGORIES: Category[] = ['A', 'B', 'C'];
+const arrayToCsvFile = (prizes: Array<{ name: string; category: string }>): File => {
+  // Header must match backend: Category,Prize
+  const csvRows = ['Category,Prize'];
 
-interface RaffleState {
-  // ------------------- STATE -------------------
-  tickets: string[];
-  prizes: Prize[];
-  categories: Category[];
-  owners: TicketOwner[];
-  currentResults: DrawResult[];
-  history: DrawHistoryEntry[];
-  isDrawing: boolean;
+  prizes.forEach((p) => {
+    // Escape commas in names if needed
+    const category = `"${p.category.replace(/"/g, '""')}"`;
+    const name = `"${p.name.replace(/"/g, '""')}"`;
+    csvRows.push(`${category},${name}`);
+  });
 
-  // ------------------- OWNERS -------------------
-  addOwner: (name: string, ticketNumbers: string[]) => TicketOwner;
-  updateOwner: (id: string, name: string, ticketNumbers: string[]) => void;
-  deleteOwner: (id: string) => void;
-  addBulkOwners: (data: { name: string; ticketNumbers: string[] }[]) => number;
-  resetOwners: () => void;
-  getOwnerByTicket: (ticket: string) => TicketOwner | undefined;
-  getAllTicketsFromOwners: () => string[];
+  const csvString = csvRows.join('\n');
+  return new File([csvString], 'prizes.csv', { type: 'text/csv' });
+};
 
-  // ------------------- TICKETS -------------------
-  addTickets: (tickets: string[]) => void;
-  addTicketRange: (start: number, end: number) => void;
-  removeTickets: (ticketsToRemove: string[]) => void;
-  clearTickets: () => void;
+export function useRaffleState() {
+  const [tickets, setTickets] = useState<string[]>([]);
+  const [prizes, setPrizes] = useState<Prize[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryMap, setCategoryMap] = useState<Map<string, number>>(new Map()); // name -> id
+  const [currentResults, setCurrentResults] = useState<DrawResult[]>([]);
+  const [history, setHistory] = useState<DrawHistoryEntry[]>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // ------------------- CATEGORIES -------------------
-  addCategory: (name: string) => boolean;
-  deleteCategory: (name: string) => boolean;
+  // Fetch categories from API
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await getCategories();
+      console.log('Fetched categories:', res.data);
+      const apiCategories = res.data.data || [];
+      const names = apiCategories.map((c) => c.name.toUpperCase());
 
-  // ------------------- PRIZES -------------------
-  addPrize: (name: string, category: Category) => void;
-  addBulkPrizes: (data: { name: string; category: Category }[]) => number;
-  updatePrize: (id: string, name: string, category: Category) => void;
-  deletePrize: (id: string) => void;
-  getAvailablePrizes: (category: Category) => Prize[];
-  getPrizesByCategory: (category: Category) => Prize[];
+      const map = new Map<string, number>();
+      apiCategories.forEach((c) => map.set(c.name.toUpperCase(), c.id));
 
-  // ------------------- DRAW -------------------
-  executeDraw: (
-    category: Category,
-    groupSize: GroupSize,
-    onAnimationTick?: (tickets: string[]) => void
-  ) => Promise<DrawResult[]>;
+      setCategories(names);
+      setCategoryMap(map);
+    } catch (err) {
+      console.error('Failed to fetch categories:', err);
+    }
+  }, []);
 
-  clearCurrentResults: () => void;
+  // Fetch prizes from API
+  const fetchPrizes = useCallback(async () => {
+    try {
+      const prizesRes = await getPrizes();
+      const apiPrizes = prizesRes.data.data || [];
 
-  // ------------------- RESET -------------------
-  resetAll: () => void;
-}
+      const mappedPrizes: Prize[] = apiPrizes
+        .map((p) => {
+          const categoryName = Array.from(categoryMap.entries()).find(
+            ([, id]) => id === p.category_id
+          )?.[0];
 
-export const useRaffleState = create<RaffleState>()(
-  persist(
-    (set, get) => ({
-      // ------------------- INITIAL STATE -------------------
-      tickets: [],
-      prizes: [],
-      categories: DEFAULT_CATEGORIES,
-      owners: [],
-      currentResults: [],
-      history: [],
-      isDrawing: false,
+          if (!categoryName) {
+            console.warn('Prize skipped (category missing):', p);
+            return null;
+          }
 
-      // ------------------- OWNERS -------------------
-      addOwner: (name, ticketNumbers) => {
-        const owner: TicketOwner = {
-          id: crypto.randomUUID(),
-          name,
-          ticketNumbers,
-        };
-        set(state => ({ owners: [...state.owners, owner] }));
-        return owner;
-      },
+          return {
+            id: p.id.toString(),
+            name: p.name,
+            category: categoryName,
+            isAssigned: p.is_drawn,
+            apiId: p.id,
+            categoryId: p.category_id,
+          };
+        })
+        .filter(Boolean) as Prize[];
 
-      updateOwner: (id, name, ticketNumbers) =>
-        set(state => ({
-          owners: state.owners.map(o =>
-            o.id === id ? { ...o, name, ticketNumbers } : o
-          ),
-        })),
+      setPrizes(mappedPrizes);
+    } catch (err) {
+      console.error('Failed to fetch prizes:', err);
+    }
+  }, [categoryMap]);
 
-      deleteOwner: id =>
-        set(state => ({
-          owners: state.owners.filter(o => o.id !== id),
-        })),
+  //fetch tickets from API
+  const fetchAllTickets = async () => {
+    try {
+      const res = await getAllTickets();
+      setTickets(res.data);
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+    }
+  };
 
-      addBulkOwners: data => {
-        const newOwners: TicketOwner[] = data.map(d => ({
-          id: crypto.randomUUID(),
-          name: d.name,
-          ticketNumbers: d.ticketNumbers,
-        }));
-        set(state => ({ owners: [...state.owners, ...newOwners] }));
-        return newOwners.length;
-      },
+  useEffect(() => {
+    fetchAllTickets();
+  }, []);
 
-      resetOwners: () => set({ owners: [] }),
+  // Initial fetch
+  useEffect(() => {
+    let isMounted = true;
 
-      getOwnerByTicket: ticket =>
-        get().owners.find(o => o.ticketNumbers.includes(ticket)),
+    const init = async () => {
+      setIsLoading(true);
+      // We wait for categories to finish and update state
+      await fetchCategories();
+      // We don't call fetchPrizes immediately because the categoryMap state
+      // update from fetchCategories hasn't "hit" the next render cycle yet.
+      setIsLoading(false);
+    };
 
-      getAllTicketsFromOwners: () =>
-        Array.from(new Set(get().owners.flatMap(o => o.ticketNumbers))),
+    init();
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchCategories]);
 
-      // ------------------- TICKETS -------------------
-      addTickets: newTickets =>
-        set(state => ({
-          tickets: [...new Set([...state.tickets, ...newTickets])],
-        })),
+  // Add a second effect that reacts when the map is actually populated
+  useEffect(() => {
+    if (categoryMap.size > 0) {
+      fetchPrizes();
+    }
+  }, [categoryMap, fetchPrizes]);
 
-      addTicketRange: (start, end) => {
-        const range = Array.from(
-          { length: end - start + 1 },
-          (_, i) => (start + i).toString()
-        );
-        get().addTickets(range);
-      },
+  // const clearTickets = useCallback(async () => {
+  //   for (const ticket of tickets) {
+  //     try {
+  //       await apiDeleteDrawTicket(ticket.id);
+  //     } catch {}
+  //   }
+  //   await fetchTickets();
+  // }, [tickets, fetchTickets]);
 
-      removeTickets: ticketsToRemove =>
-        set(state => ({
-          tickets: state.tickets.filter(t => !ticketsToRemove.includes(t)),
-        })),
+  // Category management
+  const addCategoryAsync = useCallback(
+    async (name: string) => {
+      const trimmed = name.trim().toUpperCase();
+      if (trimmed && !categories.includes(trimmed)) {
+        try {
+          const res = await apiCreateCategory({ name: trimmed });
+          if (res.data.status) {
+            await fetchCategories();
+            await fetchPrizes();
+            return true;
+          }
+        } catch (err) {
+          console.error('Failed to create category:', err);
+        }
+      }
+      return false;
+    },
+    [categories, fetchCategories]
+  );
 
-      clearTickets: () => set({ tickets: [] }),
+  const deleteCategoryAsync = useCallback(
+    async (name: string) => {
+      if (!name) return false;
 
-      // ------------------- CATEGORIES -------------------
-      addCategory: name => {
-        const trimmed = name.trim().toUpperCase();
-        if (!trimmed || get().categories.includes(trimmed)) return false;
-        set(state => ({ categories: [...state.categories, trimmed] }));
+      const trimmed = name.trim();
+      // Find the actual key in the map that matches (case-insensitive)
+      const key = Array.from(categoryMap.keys()).find(
+        (k) => k.toLowerCase() === trimmed.toLowerCase()
+      );
+
+      if (!key) return false;
+
+      const categoryId = categoryMap.get(key);
+      if (!categoryId) return false;
+
+      try {
+        await apiDeleteCategory(categoryId);
+        await fetchCategories();
+        await fetchPrizes();
         return true;
-      },
+      } catch (err) {
+        console.error('Failed to delete category:', err);
+        return false;
+      }
+    },
+    [categoryMap, prizes, fetchCategories]
+  );
 
-      deleteCategory: name => {
-        const hasPrizes = get().prizes.some(p => p.category === name);
-        if (hasPrizes) return false;
-        set(state => ({
-          categories: state.categories.filter(c => c !== name),
-        }));
-        return true;
-      },
+  const addPrizeAsync = useCallback(
+    async (name: string, category: Category) => {
+      let categoryId = categoryMap.get(category);
 
-      // ------------------- PRIZES -------------------
-      addPrize: (name, category) => {
-        const prize: Prize = {
-          id: crypto.randomUUID(),
+      // 🔁 Category not in map → fetch again
+      if (!categoryId) {
+        await fetchCategories();
+        categoryId = categoryMap.get(category);
+      }
+
+      if (!categoryId) {
+        console.error('Category still not found:', category);
+        return;
+      }
+
+      try {
+        await apiCreatePrize({
           name,
-          category,
-          isAssigned: false,
-        };
-        set(state => ({ prizes: [...state.prizes, prize] }));
-      },
+          category_id: categoryId,
+          is_drawn: false,
+        });
 
-      addBulkPrizes: data => {
-        const newPrizes: Prize[] = data.map(p => ({
-          id: crypto.randomUUID(),
-          name: p.name,
-          category: p.category,
-          isAssigned: false,
-        }));
-        set(state => ({ prizes: [...state.prizes, ...newPrizes] }));
-        return newPrizes.length;
-      },
+        await fetchPrizes();
+      } catch (err) {
+        console.error('Failed to create prize:', err);
+      }
+    },
+    [categoryMap, fetchCategories, fetchPrizes]
+  );
 
-      updatePrize: (id, name, category) =>
-        set(state => ({
-          prizes: state.prizes.map(p =>
-            p.id === id ? { ...p, name, category } : p
-          ),
-        })),
+  const addBulkPrizesAsync = useCallback(
+    async (prizesDataOrFile: File | Array<{ name: string; category: string }>) => {
+      try {
+        let fileToSend: File;
 
-      deletePrize: id =>
-        set(state => ({
-          prizes: state.prizes.filter(p => p.id !== id),
-        })),
-
-      getAvailablePrizes: category =>
-        get().prizes.filter(p => p.category === category && !p.isAssigned),
-
-      getPrizesByCategory: category =>
-        get().prizes.filter(p => p.category === category),
-
-      // ------------------- DRAW -------------------
-      executeDraw: async (category, groupSize, onAnimationTick) => {
-        const { tickets, prizes } = get();
-        const availablePrizes = prizes.filter(
-          p => p.category === category && !p.isAssigned
-        );
-
-        if (tickets.length < groupSize || availablePrizes.length < groupSize) {
-          return [];
+        if (prizesDataOrFile instanceof File) {
+          fileToSend = prizesDataOrFile;
+        } else {
+          // Convert array to CSV File
+          fileToSend = arrayToCsvFile(prizesDataOrFile);
         }
 
-        set({ isDrawing: true });
+        const formData = new FormData();
+        formData.append('csv', fileToSend);
 
-        // Animation phase
-        const animationDuration = 2500;
-        const tickInterval = 80;
-        const ticks = animationDuration / tickInterval;
+        const res = await apiImportPrizesCsv(formData); // ✅ Now accepts FormData
+        console.log('Imported prizes:', res.data.imported_count);
 
-        for (let i = 0; i < ticks; i++) {
-          await new Promise(res => setTimeout(res, tickInterval));
-          if (onAnimationTick) {
-            const shuffled = [...tickets]
-              .sort(() => Math.random() - 0.5)
-              .slice(0, groupSize);
-            onAnimationTick(shuffled);
+        await fetchCategories();
+        await fetchPrizes();
+      } catch (err) {
+        console.error('Failed to sync bulk prizes:', err);
+        throw err;
+      }
+    },
+    [fetchCategories, fetchPrizes]
+  );
+
+  const updatePrizeAsync = useCallback(
+    async (id: string, name: string, category: Category) => {
+      const prize = prizes.find((p) => p.id === id);
+      const categoryId = categoryMap.get(category);
+      if (prize?.apiId && categoryId) {
+        try {
+          await apiUpdatePrize(prize.apiId, {
+            name,
+            category_id: categoryId,
+            is_drawn: prize.isAssigned,
+          });
+          await fetchPrizes();
+        } catch (err) {
+          console.error('Failed to update prize:', err);
+        }
+      }
+    },
+    [prizes, categoryMap, fetchPrizes]
+  );
+
+  const deletePrizeAsync = useCallback(
+    async (id: string) => {
+      const prize = prizes.find((p) => p.id === id);
+      if (prize?.apiId) {
+        try {
+          await apiDeletePrize(prize.apiId);
+          await fetchPrizes();
+        } catch (err) {
+          console.error('Failed to delete prize:', err);
+        }
+      }
+    },
+    [prizes, fetchPrizes]
+  );
+
+  // ===============================
+  // SYNC ADAPTER FUNCTIONS (UI SAFE)
+  // ===============================
+
+  const addCategory = useCallback(
+    (name: string): boolean => {
+      const trimmed = name.trim().toUpperCase();
+      if (!trimmed || categories.includes(trimmed)) return false;
+
+      setCategories((prev) => [...prev, trimmed]);
+
+      addCategoryAsync(trimmed).catch(() => {});
+
+      return true;
+    },
+    [categories, addCategoryAsync]
+  );
+
+  const deleteCategory = useCallback(
+    (name: string): boolean => {
+      // DO NOT optimistically remove category
+      deleteCategoryAsync(name)
+        .then((success) => {
+          if (!success) {
+            console.warn('Category delete blocked');
+          }
+        })
+        .catch(fetchCategories);
+
+      return true;
+    },
+    [deleteCategoryAsync, fetchCategories]
+  );
+
+  const addPrize = useCallback(
+    (name: string, category: Category): void => {
+      // const tempId = crypto.randomUUID();
+      const tempId = uuidv4();
+
+      setPrizes((prev) => [...prev, { id: tempId, name, category, isAssigned: false }]);
+
+      addPrizeAsync(name, category).catch(() => {
+        setPrizes((prev) => prev.filter((p) => p.id !== tempId));
+      });
+    },
+    [addPrizeAsync]
+  );
+
+  const addBulkPrizes = useCallback(
+    (data: File | Array<{ name: string; category: string }>) => {
+      // Optimistic UI
+      if (Array.isArray(data)) {
+        setPrizes((prev) => [
+          ...prev,
+          ...data.map((p, i) => ({
+            id: `temp-${Date.now()}-${i}`,
+            name: p.name,
+            category: p.category,
+            isAssigned: false,
+          })),
+        ]);
+      }
+
+      addBulkPrizesAsync(data).catch(fetchPrizes);
+      return Array.isArray(data) ? data.length : 0;
+    },
+    [addBulkPrizesAsync, fetchPrizes]
+  );
+
+  const updatePrize = useCallback(
+    (id: string, name: string, category: Category): void => {
+      setPrizes((prev) => prev.map((p) => (p.id === id ? { ...p, name, category } : p)));
+
+      updatePrizeAsync(id, name, category).catch(fetchPrizes);
+    },
+    [updatePrizeAsync, fetchPrizes]
+  );
+
+  const deletePrize = useCallback(
+    (id: string): void => {
+      setPrizes((prev) => prev.filter((p) => p.id !== id));
+      deletePrizeAsync(id).catch(fetchPrizes);
+    },
+    [deletePrizeAsync, fetchPrizes]
+  );
+
+  const getAvailablePrizes = useCallback(
+    (category: Category) => {
+      return prizes.filter((p) => p.category === category && !p.isAssigned);
+    },
+    [prizes]
+  );
+
+  const getPrizesByCategory = useCallback(
+    (category: Category) => {
+      console.log('Getting prizes for category:', category);
+      return prizes.filter((p) => p.category === category);
+    },
+    [prizes]
+  );
+
+  const executeDraw = useCallback(
+    async (
+      category: Category,
+      groupSize: GroupSize,
+      onAnimationTick?: (shuffledTickets: string[]) => void
+    ): Promise<DrawResult[]> => {
+      const availablePrizes = getAvailablePrizes(category);
+
+      if (tickets.length < groupSize || availablePrizes.length < groupSize) {
+        return [];
+      }
+
+      setIsDrawing(true);
+
+      // Animation phase - shuffle display for 2.5 seconds
+      const animationDuration = 2500;
+      const tickInterval = 80;
+      const ticks = animationDuration / tickInterval;
+
+      for (let i = 0; i < ticks; i++) {
+        await new Promise((resolve) => setTimeout(resolve, tickInterval));
+        if (onAnimationTick) {
+          const shuffled = [...tickets].sort(() => Math.random() - 0.5).slice(0, groupSize);
+          onAnimationTick(shuffled);
+        }
+      }
+
+      // Actual random selection using crypto
+      const selectedTickets: string[] = [];
+      const ticketPool = [...tickets];
+
+      for (let i = 0; i < groupSize; i++) {
+        const randomArray = new Uint32Array(1);
+        crypto.getRandomValues(randomArray);
+        const randomIndex = randomArray[0] % ticketPool.length;
+        selectedTickets.push(ticketPool[randomIndex]);
+        ticketPool.splice(randomIndex, 1);
+      }
+
+      // Assign prizes and update backend
+      const results: DrawResult[] = [];
+      for (let index = 0; index < selectedTickets.length; index++) {
+        const ticket = selectedTickets[index];
+        const prize = availablePrizes[index];
+
+        // Update prize as drawn in backend
+        if (prize.apiId) {
+          try {
+            await apiUpdatePrize(prize.apiId, {
+              name: prize.name,
+              category_id: prize.categoryId!,
+              is_drawn: true,
+            });
+          } catch (err) {
+            console.error('Failed to mark prize as drawn:', err);
           }
         }
 
-        // Secure random draw
-        const ticketPool = [...tickets];
-        const selected: string[] = [];
-
-        for (let i = 0; i < groupSize; i++) {
-          const rand = new Uint32Array(1);
-          crypto.getRandomValues(rand);
-          const index = rand[0] % ticketPool.length;
-          selected.push(ticketPool[index]);
-          ticketPool.splice(index, 1);
-        }
-
-        const results: DrawResult[] = selected.map((ticket, i) => ({
+        results.push({
           id: crypto.randomUUID(),
           ticketNumber: ticket,
-          prize: {
-            ...availablePrizes[i],
-            isAssigned: true,
-            assignedTo: ticket,
-          },
+          prize: { ...prize, isAssigned: true, assignedTo: ticket },
           category,
           timestamp: new Date(),
-        }));
+        });
+      }
 
-        set(state => ({
-          tickets: state.tickets.filter(t => !selected.includes(t)),
-          prizes: state.prizes.map(p => {
-            const match = results.find(r => r.prize.id === p.id);
-            return match
-              ? { ...p, isAssigned: true, assignedTo: match.ticketNumber }
-              : p;
-          }),
-          currentResults: results,
-          history: [
-            {
-              id: crypto.randomUUID(),
-              results,
-              category,
-              groupSize,
-              timestamp: new Date(),
-            },
-            ...state.history,
-          ],
-          isDrawing: false,
-        }));
+      // Update local state
+      await fetchPrizes(); // Refresh prizes from server
 
-        return results;
-      },
+      const historyEntry: DrawHistoryEntry = {
+        id: crypto.randomUUID(),
+        results,
+        category,
+        groupSize,
+        timestamp: new Date(),
+      };
 
-      clearCurrentResults: () => set({ currentResults: [] }),
+      setCurrentResults(results);
+      setHistory((prev) => [historyEntry, ...prev]);
+      setIsDrawing(false);
 
-      // ------------------- RESET -------------------
-      resetAll: () =>
-        set({
-          tickets: [],
-          prizes: [],
-          owners: [],
-          categories: DEFAULT_CATEGORIES,
-          currentResults: [],
-          history: [],
-          isDrawing: false,
-        }),
-    }),
-    {
-      name: 'raffle-store',
-      storage: createJSONStorage(() => localStorage),
+      return results;
+    },
+    [tickets, getAvailablePrizes, fetchPrizes]
+  );
 
-      partialize: state => ({
-        tickets: state.tickets,
-        prizes: state.prizes,
-        owners: state.owners,
-        categories: state.categories,
-        history: state.history,
-      }),
+  const resetAll = useCallback(() => {
+    setTickets([]);
+    setCurrentResults([]);
+    setHistory([]);
+    setIsDrawing(false);
+    // Refetch from server
+    fetchCategories();
+    fetchPrizes();
+  }, [fetchCategories, fetchPrizes]);
 
-      onRehydrateStorage: () => state => {
-        if (!state) return;
-        state.history = state.history.map(h => ({
-          ...h,
-          timestamp: new Date(h.timestamp),
-          results: h.results.map(r => ({
-            ...r,
-            timestamp: new Date(r.timestamp),
-          })),
-        }));
-      },
-    }
-  )
-);
+  const clearCurrentResults = useCallback(() => {
+    setCurrentResults([]);
+  }, []);
+
+  return {
+    tickets,
+    prizes,
+    categories,
+    currentResults,
+    history,
+    isDrawing,
+    isLoading,
+
+    addCategory,
+    deleteCategory,
+    addPrize,
+    addBulkPrizes,
+    updatePrize,
+    deletePrize,
+    getAvailablePrizes,
+    getPrizesByCategory,
+    executeDraw,
+    resetAll,
+    clearCurrentResults,
+    refetchCategories: fetchCategories,
+    refetchPrizes: fetchPrizes,
+    refetchTickets: fetchAllTickets,
+  };
+}
