@@ -598,7 +598,7 @@ const handleSearchTicket = async () => {
                       const value = e.target.value;
                       setSearchTicket(value);
 
-                      // 👇 ইনপুট খালি হলে সব clear
+                      // 👇 Input If empty, all clear
                       if (!value) {
                         setSearchedTicket("");
                         setTicketOwner(null);
@@ -608,7 +608,7 @@ const handleSearchTicket = async () => {
                     }}
                     // value={searchTicket}
                     // onChange={(e) => setSearchTicket(e.target.value)}
-                    className="font-bold text-2xl border-0 flex-1 rounded-none focus-visible:ring-0 placeholder:font-bold placeholder:text-xl focus:font-bold focus:text-2xl transition-all duration-200"
+                    className="font-bold text-3xl border-0 flex-1 rounded-none focus-visible:ring-0 placeholder:font-bold placeholder:text-xl focus:font-bold focus:text-2xl transition-all duration-200"
                   />
                   <Button onClick={handleSearchTicket} className="rounded-none px-6">Search</Button>
                 </div>
