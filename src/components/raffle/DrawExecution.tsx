@@ -65,7 +65,8 @@ export function DrawExecution({
   const availablePrizes = getAvailablePrizes(selectedCategory);
   const canDraw =
     tickets.length >= selectedGroupSize && availablePrizes.length >= selectedGroupSize;
-  console.log('categories:', categories);
+  const prizeSelectedOrNot = selectedGroupSize === 1 ? selectedPrizeId !== null : true;
+
   useEffect(() => {
     setSelectedPrizeId(null);
   }, [selectedCategory, selectedGroupSize]);
@@ -236,7 +237,7 @@ export function DrawExecution({
         <div className="space-y-2">
           <Button
             onClick={handleDraw}
-            disabled={!canDraw || isDrawing}
+            disabled={!canDraw || isDrawing || isloading || !prizeSelectedOrNot}
             className={cn(
               'w-full h-16 text-xl font-bold transition-all',
               canDraw && !isDrawing ? 'bg-primary hover:bg-primary/90 hover:scale-[1.02]' : ''
@@ -282,7 +283,7 @@ export function DrawExecution({
                 <Trophy className="h-5 w-5 text-winner" /> Winners!
               </h3>
               <Button variant="outline" size="sm" onClick={handleClearResults}>
-                Draw Again
+                Draw Save
               </Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

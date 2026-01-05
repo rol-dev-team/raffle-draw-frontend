@@ -43,7 +43,7 @@ export function DrawHistory({
     const source = drawResult.length ? drawResult : history;
     if (!source || source.length === 0) return;
 
-    const rows = [['Ticket Number', 'Prize', 'Category', 'Draw Size', 'Draw Date & Time']];
+    const rows = [['Ticket Number', 'Prize', 'Category', 'Draw Date & Time']];
 
     source.forEach((entry: any) => {
       const created = entry.created_at || entry.timestamp || entry.createdAt;
@@ -52,7 +52,7 @@ export function DrawHistory({
         entry.ticket_number || entry.ticketNumber || entry.ticket,
         entry.prize || (entry.prize && entry.prize.name) || '-',
         entry.category || '-',
-        entry.draw_size || entry.drawSize || '-',
+        // entry.draw_size || entry.drawSize || '-',
         format(parsed, 'dd MMM yyyy, h:mm a'),
       ]);
     });
@@ -102,13 +102,13 @@ export function DrawHistory({
         entry.ticket_number || entry.ticketNumber || entry.ticket,
         entry.prize || (entry.prize && entry.prize.name) || '-',
         entry.category || '-',
-        entry.draw_size || entry.drawSize || '-',
+        // entry.draw_size || entry.drawSize || '-',
         format(parsed, 'dd MMM yyyy, h:mm a'),
       ];
     });
 
     autoTable(doc, {
-      head: [['Ticket Number', 'Prize', 'Category', 'Draw Size', 'Draw Date & Time']],
+      head: [['Ticket Number', 'Prize', 'Category', 'Draw Date & Time']],
       body: tableData,
       startY,
       styles: { fontSize: 10 },

@@ -26,6 +26,8 @@ import {
   deleteAllTickets,
 } from '@/service/employeeApi'; // Assume this API function is defined
 
+import { Loader, Placeholder } from 'rsuite';
+
 interface TicketManagementProps {
   tickets: string[];
   onAddTickets: (tickets: string[]) => void;
@@ -48,6 +50,8 @@ export function TicketManagement({
   const [rangeEnd, setRangeEnd] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showAll, setShowAll] = useState(false);
+  const [csvUploading, setCsvUploading] = useState(false);
+  const [csvModalOpen, setCsvModalOpen] = useState(false);
 
   const visibleTickets = showAll ? allTickets : allTickets.slice(0, 10);
 
@@ -116,6 +120,7 @@ export function TicketManagement({
     formData.append('file', file);
 
     try {
+      setCsvUploading(true);
       const res = await importBulkTicketsCsv(formData);
 
       toast({
@@ -132,6 +137,8 @@ export function TicketManagement({
         variant: 'destructive',
       });
     } finally {
+      setCsvUploading(false);
+      setCsvModalOpen(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -207,7 +214,8 @@ export function TicketManagement({
           </div>
 
           <div className="flex-1">
-            <AlertDialog>
+            {/* <AlertDialog> */}
+            <AlertDialog open={csvModalOpen} onOpenChange={setCsvModalOpen}>
               <AlertDialogTrigger asChild>
                 <Button
                   size="sm"
@@ -236,10 +244,21 @@ export function TicketManagement({
                     onChange={handleCSVUpload}
                     className="hidden"
                   />
-                  <Upload className="h-4 w-4 mr-1" /> Bulk
+                  {/* <Upload className="h-4 w-4 mr-1" /> Bulk */}
+                  {csvUploading ? (
+                    <>
+                      <Loader size="sm" className="mr-2" />
+                      Uploading…
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-1" />
+                      Bulk
+                    </>
+                  )}
                 </Button>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel disabled={csvUploading}>Cancel</AlertDialogCancel>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

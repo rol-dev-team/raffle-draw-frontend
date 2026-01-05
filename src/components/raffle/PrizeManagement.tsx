@@ -352,23 +352,57 @@ export function PrizeManagement({
     toast.success('Prize added');
   };
 
+  // const handleBulkImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = event.target.files?.[0];
+  //   if (!file) return;
+  //   Papa.parse(file, {
+  //     header: true,
+  //     skipEmptyLines: true,
+  //     complete: (results) => {
+  //       const prizesData: Array<{ name: string; category: Category }> = [];
+  //       results.data.forEach((row: unknown) => {
+  //         const rowArray = row as string[];
+  //         if (rowArray.length >= 1) {
+  //           const name = rowArray[0]?.trim();
+  //           const category = (rowArray[1]?.trim().toUpperCase() as Category) || selectedCategory;
+  //           if (name && category) {
+  //             if (!categories.includes(category)) onAddCategory(category);
+  //             prizesData.push({ name, category });
+  //           }
+  //         }
+  //       });
+  //       if (prizesData.length > 0) {
+  //         const added = onAddBulkPrizes(prizesData);
+  //         toast.success(`Imported ${added} prizes`);
+  //       } else {
+  //         toast.error('No valid prizes found');
+  //       }
+  //     },
+  //     error: () => toast.error('Failed to parse CSV'),
+  //   });
+  //   if (fileInputRef.current) fileInputRef.current.value = '';
+  // };
+
   const handleBulkImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
     Papa.parse(file, {
+      header: true, // ✅ header skip করবে
+      skipEmptyLines: true,
       complete: (results) => {
         const prizesData: Array<{ name: string; category: Category }> = [];
-        results.data.forEach((row: unknown) => {
-          const rowArray = row as string[];
-          if (rowArray.length >= 1) {
-            const name = rowArray[0]?.trim();
-            const category = (rowArray[1]?.trim().toUpperCase() as Category) || selectedCategory;
-            if (name && category) {
-              if (!categories.includes(category)) onAddCategory(category);
-              prizesData.push({ name, category });
-            }
+
+        results.data.forEach((row: any) => {
+          const name = row.Prize?.trim();
+          const category = (row.Category?.trim().toUpperCase() as Category) || selectedCategory;
+
+          if (name && category) {
+            if (!categories.includes(category)) onAddCategory(category);
+            prizesData.push({ name, category });
           }
         });
+
         if (prizesData.length > 0) {
           const added = onAddBulkPrizes(prizesData);
           toast.success(`Imported ${added} prizes`);
@@ -378,9 +412,9 @@ export function PrizeManagement({
       },
       error: () => toast.error('Failed to parse CSV'),
     });
+
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
-
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) return;
     const success = onAddCategory(newCategoryName.trim());
@@ -544,21 +578,29 @@ export function PrizeManagement({
                         ) : (
                           <>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge
+                              {/* <Badge
                                 className={`${getColorForCategory(cat).bg} ${
                                   getColorForCategory(cat).fg
                                 } border-0`}
                               >
                                 {cat}
-                              </Badge>
-                              <span className={prize.isAssigned ? 'line-through' : ''}>
+                              </Badge> */}
+
+                              <span className={`text-xs font-semibold border-0`}>{cat}</span>
+                              <span
+                                className={
+                                  prize.isAssigned
+                                    ? 'line-through'
+                                    : `font-semibold text-white bg-blue-500 px-3 py-1 rounded-3xl`
+                                }
+                              >
                                 {prize.name}
                               </span>
-                              {prize.isAssigned && (
+                              {/* {prize.isAssigned && (
                                 <Badge variant="outline" className="text-xs">
                                   → #{prize.assignedTo}
                                 </Badge>
-                              )}
+                              )} */}
                             </div>
                             {!prize.isAssigned && (
                               <div className="flex gap-1 mt-1 sm:mt-0">

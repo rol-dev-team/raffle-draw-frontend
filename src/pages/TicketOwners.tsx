@@ -19,7 +19,16 @@ import { Badge } from '@/components/ui/badge';
 import { FloatingInput } from '@/components/ui/FloatingInput';
 import { FloatingSelect } from '@/components/ui/FloatingSelect';
 import IDCard from '@/components/raffle/IDCard';
-import { Users, ArrowLeft, Plus, TableIcon, Upload, Download, StepBack } from 'lucide-react';
+import {
+  Users,
+  ArrowLeft,
+  Plus,
+  TableIcon,
+  Upload,
+  Download,
+  StepBack,
+  Search,
+} from 'lucide-react';
 import Papa from 'papaparse';
 import { useToast } from '@/hooks/use-toast';
 import { SelectItem } from '@/components/ui/select';
@@ -56,6 +65,7 @@ export default function TicketOwnersPage() {
   const [ticketOwner, setTicketOwner] = useState<TicketOwner | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
 
   /* ================= ADD OWNER FORM ================= */
   const [branch, setBranch] = useState('');
@@ -68,6 +78,7 @@ export default function TicketOwnersPage() {
   const [gender, setGender] = useState('');
   // const [ticketInputs, setTicketInputs] = useState([""]);
   const [ticketInputs, setTicketInputs] = useState<string[]>(['']);
+  const [csvUploading, setCsvUploading] = useState(false);
 
   const initialValues: Omit<TicketOwner, 'id'> = {
     name: '',
@@ -144,6 +155,42 @@ export default function TicketOwnersPage() {
   };
 
   /* ================= CSV EXPORT ================= */
+  // const handleExport = () => {
+  //   const headers = [
+  //     'Name',
+  //     'Branch',
+  //     'Division',
+  //     'Reg Code',
+  //     'Department',
+  //     'Designation',
+  //     'Company',
+  //     'Gender',
+  //     'Tickets',
+  //   ];
+
+  //   const rows = owners.map((o) => [
+  //     o.name,
+  //     o.branch,
+  //     o.division,
+  //     o.reg_code,
+  //     o.department,
+  //     o.designation,
+  //     o.company,
+  //     o.gender,
+  //     o.tickets.join(','),
+  //   ]);
+
+  //   const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n');
+
+  //   const blob = new Blob([csv], { type: 'text/csv' });
+  //   const url = URL.createObjectURL(blob);
+  //   const a = document.createElement('a');
+  //   a.href = url;
+  //   a.download = 'ticket-owners.csv';
+  //   a.click();
+  //   URL.revokeObjectURL(url);
+  // };
+
   const handleExport = () => {
     const headers = [
       'Name',
@@ -166,7 +213,8 @@ export default function TicketOwnersPage() {
       o.designation,
       o.company,
       o.gender,
-      o.tickets.join(','),
+      // safely handle tickets
+      Array.isArray(o.tickets) ? o.tickets.join(',') : o.tickets ?? '',
     ]);
 
     const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n');
@@ -179,11 +227,10 @@ export default function TicketOwnersPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
-
   const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    console.log('Selected file:', file);
+
     if (!file.name.endsWith('.csv')) {
       toast({
         title: 'Invalid File',
@@ -197,6 +244,7 @@ export default function TicketOwnersPage() {
     formData.append('file', file);
 
     try {
+      setCsvUploading(true);
       const res = await importEmployeesCsv(formData);
 
       toast({
@@ -213,6 +261,7 @@ export default function TicketOwnersPage() {
         variant: 'destructive',
       });
     } finally {
+      setCsvUploading(false);
       if (fileEmployeesInputRef.current) {
         fileEmployeesInputRef.current.value = '';
       }
@@ -255,7 +304,7 @@ export default function TicketOwnersPage() {
       .catch((error) => {
         console.error('Error fetching employees:', error);
       });
-  }, []);
+  }, [csvUploading]);
 
   return (
     <div className="p-3 md:p-3 max-w-full space-y-6">
@@ -291,7 +340,19 @@ export default function TicketOwnersPage() {
                 onChange={handleCSVUpload}
                 className="hidden"
               />
-              <Upload className="h-4 w-4 mr-1" /> Bulk
+              {/* <Upload className="h-4 w-4 mr-1" /> Bulk */}
+
+              {csvUploading ? (
+                <>
+                  <Loader size="sm" className="mr-2" />
+                  Uploading…
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-1" />
+                  Bulk
+                </>
+              )}
             </Button>
           </div>
 
@@ -523,6 +584,19 @@ export default function TicketOwnersPage() {
       {/* ================= TABLE PAGE ================= */}
       {page === 'table' && (
         <div className="mt-8 rounded-xl border border-gray-200 bg-white shadow-md">
+          {/* ================= SEARCH BAR ================= */}
+          <div className="flex items-center p-4 border-b border-gray-200">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name or ticket number"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
           {/* Horizontal scroll */}
           <div className="overflow-x-auto">
             {/* Fixed height + vertical scroll */}
@@ -561,57 +635,69 @@ export default function TicketOwnersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {owners.map((o) => (
-                    <tr
-                      key={o.id}
-                      /* Changed hover behavior to a cleaner full-row gray/blue tint */
-                      className="group hover:bg-slate-50 transition-colors duration-200 ease-in-out cursor-default"
-                    >
-                      <td className="px-4 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">
-                        {o.name}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
-                        {o.company}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-600">{o.branch}</td>
-                      <td className="px-4 py-4 text-sm text-gray-600">{o.division}</td>
-                      <td className="px-4 py-4 text-sm text-gray-600">{o.department}</td>
-                      <td className="px-4 py-4 text-sm text-gray-600">{o.designation}</td>
-                      <td className="px-4 py-4 text-sm font-mono text-gray-500 bg-gray-50/50">
-                        {o.reg_code}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-600">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${
-                            o.gender === 'Male'
-                              ? 'bg-blue-50 text-blue-600 border border-blue-100'
-                              : 'bg-pink-50 text-pink-600 border border-pink-100'
-                          }`}
-                        >
-                          {o.gender}
-                        </span>
-                      </td>
+                  {owners
+                    .filter((o) => {
+                      if (!searchText.trim()) return true;
 
-                      {/* Wider Ticket Column with min-width and better padding */}
-                      <td className="px-6 py-4 min-w-[300px] border-l border-gray-50">
-                        <div className="flex flex-wrap gap-2">
-                          {o.tickets ? (
-                            o.tickets.split(',').map((t, index) => (
-                              <Badge
-                                key={index}
-                                variant="secondary"
-                                className="bg-white text-slate-700 border border-slate-200 text-[11px] font-medium shadow-sm px-2 py-0.5"
-                              >
-                                {t.trim()}
-                              </Badge>
-                            ))
-                          ) : (
-                            <span className="text-xs italic text-gray-400">No active tickets</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                      const keyword = searchText.toLowerCase();
+                      const nameMatch = o.name?.toLowerCase().includes(keyword);
+                      const ticketMatch = o.tickets?.toLowerCase().includes(keyword);
+
+                      return nameMatch || ticketMatch;
+                    })
+                    .map((o) => (
+                      <tr
+                        key={o.id}
+                        /* Changed hover behavior to a cleaner full-row gray/blue tint */
+                        className="group hover:bg-slate-50 transition-colors duration-200 ease-in-out cursor-default"
+                      >
+                        <td className="px-4 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">
+                          {o.name}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
+                          {o.company}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-600">{o.branch}</td>
+                        <td className="px-4 py-4 text-sm text-gray-600">{o.division}</td>
+                        <td className="px-4 py-4 text-sm text-gray-600">{o.department}</td>
+                        <td className="px-4 py-4 text-sm text-gray-600">{o.designation}</td>
+                        <td className="px-4 py-4 text-sm font-mono text-gray-500 bg-gray-50/50">
+                          {o.reg_code}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-600">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${
+                              o.gender === 'Male'
+                                ? 'bg-blue-50 text-blue-600 border border-blue-100'
+                                : 'bg-pink-50 text-pink-600 border border-pink-100'
+                            }`}
+                          >
+                            {o.gender}
+                          </span>
+                        </td>
+
+                        {/* Wider Ticket Column with min-width and better padding */}
+                        <td className="px-6 py-4 min-w-[300px] border-l border-gray-50">
+                          <div className="flex flex-wrap gap-2">
+                            {o.tickets ? (
+                              o.tickets.split(',').map((t, index) => (
+                                <Badge
+                                  key={index}
+                                  variant="secondary"
+                                  className="bg-white text-slate-700 border border-slate-200 text-[11px] font-medium shadow-sm px-2 py-0.5"
+                                >
+                                  {t.trim()}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-xs italic text-gray-400">
+                                No active tickets
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -675,8 +761,21 @@ export default function TicketOwnersPage() {
                     {/* Input */}
                     <Input
                       placeholder="Enter ticket number"
+                      // value={searchTicket}
+                      // onChange={(e) => setSearchTicket(e.target.value)}
                       value={searchTicket}
-                      onChange={(e) => setSearchTicket(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSearchTicket(value);
+
+                        // 👇 Input If empty, all clear
+                        if (!value) {
+                          setSearchedTicket('');
+                          setTicketOwner(null);
+                          setLoading(false);
+                          setError(null);
+                        }
+                      }}
                       className="
           flex-1
           h-16
