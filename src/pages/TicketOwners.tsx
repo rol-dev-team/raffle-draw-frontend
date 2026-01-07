@@ -88,7 +88,6 @@ export default function TicketOwnersPage() {
     department: '',
     designation: '',
     reg_code: '',
-    gender: '',
     tickets: [''],
   };
   const formik = useFormik({
@@ -100,7 +99,6 @@ export default function TicketOwnersPage() {
       department: '',
       designation: '',
       reg_code: '',
-      gender: '',
       tickets: [''],
     },
     validationSchema: validationSchemas,
@@ -132,7 +130,6 @@ export default function TicketOwnersPage() {
         department: values.department,
         designation: values.designation,
         reg_code: values.reg_code,
-        gender: values.gender,
         tickets: tickets, // 👈 IMPORTANT
       };
 
@@ -200,7 +197,6 @@ export default function TicketOwnersPage() {
       'Department',
       'Designation',
       'Company',
-      'Gender',
       'Tickets',
     ];
 
@@ -212,7 +208,6 @@ export default function TicketOwnersPage() {
       o.department,
       o.designation,
       o.company,
-      o.gender,
       // safely handle tickets
       Array.isArray(o.tickets) ? o.tickets.join(',') : o.tickets ?? '',
     ]);
@@ -485,7 +480,7 @@ export default function TicketOwnersPage() {
                     />
 
                     {/* Select Gender */}
-                    <FloatingSelect
+                    {/* <FloatingSelect
                       label="Gender"
                       value={values.gender}
                       onValueChange={(v) => setFieldValue('gender', v)}
@@ -494,7 +489,7 @@ export default function TicketOwnersPage() {
                     >
                       <SelectItem value="Male">Male</SelectItem>
                       <SelectItem value="Female">Female</SelectItem>
-                    </FloatingSelect>
+                    </FloatingSelect> */}
                   </div>
 
                   {/* Ticket Numbers Section */}
@@ -625,9 +620,9 @@ export default function TicketOwnersPage() {
                     <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">
                       Reg Code
                     </th>
-                    <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">
+                    {/* <th className="px-4 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">
                       Gender
-                    </th>
+                    </th> */}
                     {/* Added min-width here to make header match the body column */}
                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500 min-w-[300px]">
                       Tickets
@@ -664,7 +659,7 @@ export default function TicketOwnersPage() {
                         <td className="px-4 py-4 text-sm font-mono text-gray-500 bg-gray-50/50">
                           {o.reg_code}
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-600">
+                        {/* <td className="px-4 py-4 text-sm text-gray-600">
                           <span
                             className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${
                               o.gender === 'Male'
@@ -674,7 +669,7 @@ export default function TicketOwnersPage() {
                           >
                             {o.gender}
                           </span>
-                        </td>
+                        </td> */}
 
                         {/* Wider Ticket Column with min-width and better padding */}
                         <td className="px-6 py-4 min-w-[300px] border-l border-gray-50">
@@ -849,7 +844,7 @@ export default function TicketOwnersPage() {
                         department={ticketOwner.department}
                         company={ticketOwner.company}
                         branch={ticketOwner.branch}
-                        gender={ticketOwner.gender}
+                        // gender={ticketOwner.gender}
                         ticket={searchedTicket}
                       />
                     </div>
