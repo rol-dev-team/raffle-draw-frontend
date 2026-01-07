@@ -64,7 +64,7 @@ export function FloatingSelect({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
 
-        <SelectContent className="max-h-40 overflow-y-scroll scrollbar-visible">
+        <SelectContent className="max-h-[200px] overflow-y-scroll scrollbar-visible">
           {children}
         </SelectContent>
       </Select>
