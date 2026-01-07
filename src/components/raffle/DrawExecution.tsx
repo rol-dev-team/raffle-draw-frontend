@@ -43,7 +43,7 @@ const getCategoryColor = (category: string) => {
   return `bg-[hsl(${hue},70%,50%)] text-white`;
 };
 
-const groupSizes = [1, 2, 3, 4, 5, 6];
+const groupSizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 export function DrawExecution({
   tickets,
