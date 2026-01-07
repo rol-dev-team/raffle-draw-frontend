@@ -40,3 +40,23 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Custom scrollbar for dropdown */
+.scrollbar-visible::-webkit-scrollbar {
+  width: 8px; /* width of scrollbar */
+}
+
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: #e5e7eb; /* Tailwind gray-200 */
+  border-radius: 4px;
+}
+
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background-color: #3b82f6; /* Tailwind blue-500 */
+  border-radius: 4px;
+}
+
+.scrollbar-visible {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #3b82f6 #e5e7eb; /* Firefox thumb & track */
+}
